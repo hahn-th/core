@@ -18,7 +18,7 @@ async def test_hmip_garage_door_controller_button(
     entity_name = "Garagentor"
     device_model = "HmIP-WGC"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
-        test_devices=[entity_name]
+        test_devices=["3014F7110000000000000WGC"]
     )
 
     get_and_check_entity_basics(hass, mock_hap, entity_id, entity_name, device_model)

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from homematicip.aio.device import (
-    AsyncWeatherSensor,
-    AsyncWeatherSensorPlus,
-    AsyncWeatherSensorPro,
-)
-from homematicip.base.enums import WeatherCondition
+from typing import TypedDict
+
+# from homematicip.aio.device import (
+#     AsyncWeatherSensor,
+#     AsyncWeatherSensorPlus,
+#     AsyncWeatherSensorPro,
+# )
+from homematicip.model.enums import WeatherCondition
 
 from homeassistant.components.weather import (
     ATTR_CONDITION_CLOUDY,
@@ -57,11 +59,19 @@ async def async_setup_entry(
     """Set up the HomematicIP weather sensor from a config entry."""
     hap = hass.data[HMIPC_DOMAIN][config_entry.unique_id]
     entities: list[HomematicipGenericEntity] = []
-    for device in hap.home.devices:
-        if isinstance(device, AsyncWeatherSensorPro):
-            entities.append(HomematicipWeatherSensorPro(hap, device))
-        elif isinstance(device, (AsyncWeatherSensor, AsyncWeatherSensorPlus)):
-            entities.append(HomematicipWeatherSensor(hap, device))
+    for device in hap.model.devices.values():
+        if device.functionalChannels:
+            for channel in device.functionalChannels.values():
+                if channel.functionalChannelType in MapFunctionalChannelDevice:
+                    for target_dict in MapFunctionalChannelDevice[
+                        channel.functionalChannelType
+                    ]:
+                        target_type: type = target_dict["type"]
+                        entities.append(
+                            target_type(
+                                hap=hap, device=device, channel_index=channel.index
+                            )
+                        )
 
     entities.append(HomematicipHomeWeather(hap))
 
@@ -75,9 +85,9 @@ class HomematicipWeatherSensor(HomematicipGenericEntity, WeatherEntity):
     _attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
     _attr_attribution = "Powered by Homematic IP"
 
-    def __init__(self, hap: HomematicipHAP, device) -> None:
+    def __init__(self, hap: HomematicipHAP, device, channel_index: int) -> None:
         """Initialize the weather sensor."""
-        super().__init__(hap, device)
+        super().__init__(hap, device=device, channel_index=channel_index)
 
     @property
     def name(self) -> str:
@@ -87,26 +97,26 @@ class HomematicipWeatherSensor(HomematicipGenericEntity, WeatherEntity):
     @property
     def native_temperature(self) -> float:
         """Return the platform temperature."""
-        return self._device.actualTemperature
+        return self.functional_channel.actualTemperature
 
     @property
     def humidity(self) -> int:
         """Return the humidity."""
-        return self._device.humidity
+        return self.functional_channel.humidity
 
     @property
     def native_wind_speed(self) -> float:
         """Return the wind speed."""
-        return self._device.windSpeed
+        return self.functional_channel.windSpeed
 
     @property
     def condition(self) -> str:
         """Return the current condition."""
-        if getattr(self._device, "raining", None):
+        if getattr(self.functional_channel, "raining", None):
             return ATTR_CONDITION_RAINY
-        if self._device.storm:
+        if self.functional_channel.storm:
             return ATTR_CONDITION_WINDY
-        if self._device.sunshine:
+        if self.functional_channel.sunshine:
             return ATTR_CONDITION_SUNNY
         return ""
 
@@ -117,7 +127,7 @@ class HomematicipWeatherSensorPro(HomematicipWeatherSensor):
     @property
     def wind_bearing(self) -> float:
         """Return the wind bearing."""
-        return self._device.windDirection
+        return self.functional_channel.windDirection
 
 
 class HomematicipHomeWeather(HomematicipGenericEntity, WeatherEntity):
@@ -129,18 +139,18 @@ class HomematicipHomeWeather(HomematicipGenericEntity, WeatherEntity):
 
     def __init__(self, hap: HomematicipHAP) -> None:
         """Initialize the home weather."""
-        hap.home.modelType = "HmIP-Home-Weather"
-        super().__init__(hap, hap.home)
+        hap.model.home.modelType = "HmIP-Home-Weather"
+        super().__init__(hap, hap.model.home)
 
     @property
     def available(self) -> bool:
         """Return if weather entity is available."""
-        return self._home.connected
+        return self._hap.runner.websocket_connected
 
     @property
     def name(self) -> str:
         """Return the name of the sensor."""
-        return f"Weather {self._home.location.city}"
+        return f"Weather {self._hap.model.home.location.city}"
 
     @property
     def native_temperature(self) -> float:
@@ -166,3 +176,36 @@ class HomematicipHomeWeather(HomematicipGenericEntity, WeatherEntity):
     def condition(self) -> str | None:
         """Return the current condition."""
         return HOME_WEATHER_CONDITION.get(self._device.weather.weatherCondition)
+
+
+class TypedMappingDict(TypedDict):
+    """TypedDict for mapping functional channel types to their classes."""
+
+    type: type
+    is_multi_channel: bool
+    post: str | None
+
+
+MapFunctionalChannelDevice: dict[str, list[TypedMappingDict]] = {
+    "WEATHER_SENSOR_CHANNEL": [
+        {
+            "type": HomematicipHomeWeather,
+            "is_multi_channel": False,
+            "post": None,
+        }
+    ],
+    "WEATHER_SENSOR_PRO_CHANNEL": [
+        {
+            "type": HomematicipWeatherSensorPro,
+            "is_multi_channel": False,
+            "post": None,
+        }
+    ],
+    "WEATHER_SENSOR_PLUS_CHANNEL": [
+        {
+            "type": HomematicipWeatherSensor,
+            "is_multi_channel": False,
+            "post": None,
+        }
+    ],
+}

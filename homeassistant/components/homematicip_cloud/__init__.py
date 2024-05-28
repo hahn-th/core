@@ -98,12 +98,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register hap as device in registry.
     device_registry = dr.async_get(hass)
 
-    home = hap.home
-    hapname = home.label if home.label != entry.unique_id else f"Home-{home.label}"
+    runner = hap.runner
+    hapname = (
+        runner.label if runner.label != entry.unique_id else f"Home-{runner.label}"
+    )
 
     device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, home.id)},
+        identifiers={(DOMAIN, runner.model.home.id)},
         manufacturer="eQ-3",
         # Add the name from config entry.
         name=hapname,
@@ -127,7 +129,7 @@ def _async_remove_obsolete_entities(
 ):
     """Remove obsolete entities from entity registry."""
 
-    if hap.home.currentAPVersion < "2.2.12":
+    if hap.model.home.currentAPVersion < "2.2.12":
         return
 
     entity_registry = er.async_get(hass)
@@ -137,6 +139,6 @@ def _async_remove_obsolete_entities(
             entity_registry.async_remove(er_entry.entity_id)
             continue
 
-        for hapid in hap.home.accessPointUpdateStates:
+        for hapid in hap.model.home.accessPointUpdateStates:
             if er_entry.unique_id == f"HomematicipBatterySensor_{hapid}":
                 entity_registry.async_remove(er_entry.entity_id)

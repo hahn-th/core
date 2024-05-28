@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, TypedDict
 
-from homematicip.aio.device import AsyncDoorLockDrive
-from homematicip.base.enums import LockState, MotorState
+from homematicip.action.functional_channel_actions import action_set_door_state
+from homematicip.model.enums import LockState, MotorState
 
 from homeassistant.components.lock import LockEntity, LockEntityFeature
 from homeassistant.config_entries import ConfigEntry
@@ -41,11 +41,27 @@ async def async_setup_entry(
     """Set up the HomematicIP locks from a config entry."""
     hap = hass.data[HMIPC_DOMAIN][config_entry.unique_id]
 
-    async_add_entities(
-        HomematicipDoorLockDrive(hap, device)
-        for device in hap.home.devices
-        if isinstance(device, AsyncDoorLockDrive)
-    )
+    entities = []
+    for device in hap.model.devices.values():
+        if device.functionalChannels:
+            for channel in device.functionalChannels.values():
+                if channel.functionalChannelType in MapFunctionalChannelDevice:
+                    for target_dict in MapFunctionalChannelDevice[
+                        channel.functionalChannelType
+                    ]:
+                        target_type: type = target_dict["type"]
+                        entities.append(
+                            target_type(
+                                hap=hap,
+                                device=device,
+                                channel_index=channel.index,
+                                is_multi_channel=target_dict["is_multi_channel"],
+                                post=target_dict["post"],
+                            )
+                        )
+
+    if len(entities) > 0:
+        async_add_entities(entities)
 
 
 class HomematicipDoorLockDrive(HomematicipGenericEntity, LockEntity):
@@ -57,34 +73,40 @@ class HomematicipDoorLockDrive(HomematicipGenericEntity, LockEntity):
     def is_locked(self) -> bool | None:
         """Return true if device is locked."""
         return (
-            self._device.lockState == LockState.LOCKED
-            and self._device.motorState == MotorState.STOPPED
+            self.functional_channel.lockState == LockState.LOCKED
+            and self.functional_channel.motorState == MotorState.STOPPED
         )
 
     @property
     def is_locking(self) -> bool:
         """Return true if device is locking."""
-        return self._device.motorState == MotorState.CLOSING
+        return self.functional_channel.motorState == MotorState.CLOSING
 
     @property
     def is_unlocking(self) -> bool:
         """Return true if device is unlocking."""
-        return self._device.motorState == MotorState.OPENING
+        return self.functional_channel.motorState == MotorState.OPENING
 
     @handle_errors
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock the device."""
-        return await self._device.set_lock_state(LockState.LOCKED)
+        return await action_set_door_state(
+            self._hap.runner, self.functional_channel, LockState.LOCKED
+        )
 
     @handle_errors
     async def async_unlock(self, **kwargs: Any) -> None:
         """Unlock the device."""
-        return await self._device.set_lock_state(LockState.UNLOCKED)
+        return await action_set_door_state(
+            self._hap.runner, self.functional_channel, LockState.UNLOCKED
+        )
 
     @handle_errors
     async def async_open(self, **kwargs: Any) -> None:
         """Open the door latch."""
-        return await self._device.set_lock_state(LockState.OPEN)
+        return await action_set_door_state(
+            self._hap.runner, self.functional_channel, LockState.OPEN
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -92,5 +114,24 @@ class HomematicipDoorLockDrive(HomematicipGenericEntity, LockEntity):
         return super().extra_state_attributes | {
             attr_key: attr_value
             for attr, attr_key in DEVICE_DLD_ATTRIBUTES.items()
-            if (attr_value := getattr(self._device, attr, None)) is not None
+            if (attr_value := getattr(self.functional_channel, attr, None)) is not None
         }
+
+
+class TypedMappingDict(TypedDict):
+    """TypedDict for mapping functional channel types to their classes."""
+
+    type: type
+    is_multi_channel: bool
+    post: str | None
+
+
+MapFunctionalChannelDevice: dict[str, list[TypedMappingDict]] = {
+    "DOOR_LOCK_CHANNEL": [
+        {
+            "type": HomematicipDoorLockDrive,
+            "is_multi_channel": False,
+            "post": None,
+        }
+    ],
+}

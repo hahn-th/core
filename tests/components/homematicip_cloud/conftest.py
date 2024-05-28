@@ -1,11 +1,16 @@
 """Initializer helpers for HomematicIP fake server."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from homematicip.aio.auth import AsyncAuth
-from homematicip.aio.connection import AsyncConnection
-from homematicip.aio.home import AsyncHome
-from homematicip.base.enums import WeatherCondition, WeatherDayTime
+from homematicip.auth import Auth
+from homematicip.connection.rest_connection import RestConnection
+
+# from homematicip.aio.auth import AsyncAuth
+# from homematicip.aio.connection import AsyncConnection
+# from homematicip.aio.home import AsyncHome
+from homematicip.model.model import Model, build_model_from_json
+from homematicip.runner import Runner
 import pytest
 
 from homeassistant import config_entries
@@ -26,21 +31,33 @@ from homeassistant.helpers.typing import ConfigType
 
 from .helper import AUTH_TOKEN, HAPID, HAPPIN, HomeFactory
 
-from tests.common import MockConfigEntry
+from tests.common import MockConfigEntry, load_fixture
 from tests.components.light.conftest import mock_light_profiles  # noqa: F401
 
 
+@pytest.fixture(name="fixture_data")
+def fixture_data_fixture() -> str:
+    """Return a simple fixture data string."""
+    return load_fixture("homematicip_cloud.json", "homematicip_cloud")
+
+
+@pytest.fixture(name="fixture_model")
+def fixture_model_fixture(fixture_data) -> Model:
+    """Return a simple fixture model."""
+    return build_model_from_json(json.loads(fixture_data))
+
+
 @pytest.fixture(name="mock_connection")
-def mock_connection_fixture() -> AsyncConnection:
+def mock_connection_fixture() -> RestConnection:
     """Return a mocked connection."""
-    connection = MagicMock(spec=AsyncConnection)
+    connection = MagicMock(spec=RestConnection)
 
     def _rest_call_side_effect(path, body=None):
         return path, body
 
-    connection._rest_call.side_effect = _rest_call_side_effect
-    connection.api_call = AsyncMock(return_value=True)
-    connection.init = AsyncMock(side_effect=True)
+    connection.async_post.side_effect = _rest_call_side_effect
+    # connection.api_call = AsyncMock(return_value=True)
+    # connection.init = AsyncMock(side_effect=True)
 
     return connection
 
@@ -105,34 +122,16 @@ async def mock_hap_with_service_fixture(
 
 
 @pytest.fixture(name="simple_mock_home")
-def simple_mock_home_fixture():
+def simple_mock_home_fixture(fixture_model):
     """Return a simple mocked connection."""
 
-    mock_home = Mock(
-        spec=AsyncHome,
-        name="Demo",
-        devices=[],
-        groups=[],
-        location=Mock(),
-        weather=Mock(
-            temperature=0.0,
-            weatherCondition=WeatherCondition.UNKNOWN,
-            weatherDayTime=WeatherDayTime.DAY,
-            minTemperature=0.0,
-            maxTemperature=0.0,
-            humidity=0,
-            windSpeed=0.0,
-            windDirection=0,
-            vaporAmount=0.0,
-        ),
-        id=42,
-        dutyCycle=88,
-        connected=True,
-        currentAPVersion="2.0.36",
-    )
+    fixture_model.devices = {}
+    fixture_model.groups = {}
+
+    mock_home = Mock(spec=Runner, name="Demo", model=fixture_model)
 
     with patch(
-        "homeassistant.components.homematicip_cloud.hap.AsyncHome",
+        "homeassistant.components.homematicip_cloud.hap.Runner",
         autospec=True,
         return_value=mock_home,
     ):
@@ -145,11 +144,11 @@ def mock_connection_init_fixture():
 
     with (
         patch(
-            "homeassistant.components.homematicip_cloud.hap.AsyncHome.init",
+            "homeassistant.components.homematicip_cloud.hap.Runner.async_initialize_runner",
             return_value=None,
         ),
         patch(
-            "homeassistant.components.homematicip_cloud.hap.AsyncAuth.init",
+            "homematicip.auth.RestConnection",
             return_value=None,
         ),
     ):
@@ -157,6 +156,6 @@ def mock_connection_init_fixture():
 
 
 @pytest.fixture(name="simple_mock_auth")
-def simple_mock_auth_fixture() -> AsyncAuth:
+def simple_mock_auth_fixture() -> Auth:
     """Return a simple AsyncAuth Mock."""
-    return Mock(spec=AsyncAuth, pin=HAPPIN, create=True)
+    return AsyncMock(spec=Auth, pin=HAPPIN, create=True)

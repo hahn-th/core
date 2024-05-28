@@ -31,7 +31,7 @@ async def test_hmip_weather_sensor(
     entity_name = "Weather Sensor – plus"
     device_model = "HmIP-SWO-PL"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
-        test_devices=[entity_name]
+        test_devices=["3014F7110000000000000038"]
     )
 
     ha_state, hmip_device = get_and_check_entity_basics(
@@ -57,7 +57,7 @@ async def test_hmip_weather_sensor_pro(
     entity_name = "Wettersensor - pro"
     device_model = "HmIP-SWO-PR"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
-        test_devices=[entity_name]
+        test_devices=["3014F711AAAA000000000001"]
     )
 
     ha_state, hmip_device = get_and_check_entity_basics(
@@ -95,7 +95,11 @@ async def test_hmip_home_weather(hass: HomeAssistant, default_mock_hap_factory) 
     assert ha_state.attributes[ATTR_ATTRIBUTION] == "Powered by Homematic IP"
 
     await async_manipulate_test_data(
-        hass, mock_hap.home.weather, "temperature", 28.3, fire_device=mock_hap.home
+        hass,
+        mock_hap.model.home.weather,
+        "temperature",
+        28.3,
+        fire_device=mock_hap.model.home,
     )
 
     ha_state = hass.states.get(entity_id)

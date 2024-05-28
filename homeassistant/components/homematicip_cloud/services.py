@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
-from homematicip.aio.device import AsyncSwitchMeasuring
-from homematicip.aio.group import AsyncHeatingGroup
-from homematicip.aio.home import AsyncHome
-from homematicip.base.helpers import handle_config
+# from homematicip.aio.device import AsyncSwitchMeasuring
+# from homematicip.aio.group import AsyncHeatingGroup
+# from homematicip.aio.home import AsyncHome
+from homematicip.model.anoymizer import handle_config
 import voluptuous as vol
 
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
@@ -208,80 +209,92 @@ async def _async_activate_eco_mode_with_duration(
     hass: HomeAssistant, service: ServiceCall
 ) -> None:
     """Service to activate eco mode with duration."""
-    duration = service.data[ATTR_DURATION]
 
-    if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
-        if home := _get_home(hass, hapid):
-            await home.activate_absence_with_duration(duration)
-    else:
-        for hap in hass.data[HMIPC_DOMAIN].values():
-            await hap.home.activate_absence_with_duration(duration)
+
+#     duration = service.data[ATTR_DURATION]
+
+#     if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
+#         if home := _get_home(hass, hapid):
+#             await home.activate_absence_with_duration(duration)
+#     else:
+#         for hap in hass.data[HMIPC_DOMAIN].values():
+#             await hap.home.activate_absence_with_duration(duration)
 
 
 async def _async_activate_eco_mode_with_period(
     hass: HomeAssistant, service: ServiceCall
 ) -> None:
     """Service to activate eco mode with period."""
-    endtime = service.data[ATTR_ENDTIME]
 
-    if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
-        if home := _get_home(hass, hapid):
-            await home.activate_absence_with_period(endtime)
-    else:
-        for hap in hass.data[HMIPC_DOMAIN].values():
-            await hap.home.activate_absence_with_period(endtime)
+
+#     endtime = service.data[ATTR_ENDTIME]
+
+#     if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
+#         if home := _get_home(hass, hapid):
+#             await home.activate_absence_with_period(endtime)
+#     else:
+#         for hap in hass.data[HMIPC_DOMAIN].values():
+#             await hap.home.activate_absence_with_period(endtime)
 
 
 async def _async_activate_vacation(hass: HomeAssistant, service: ServiceCall) -> None:
     """Service to activate vacation."""
-    endtime = service.data[ATTR_ENDTIME]
-    temperature = service.data[ATTR_TEMPERATURE]
 
-    if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
-        if home := _get_home(hass, hapid):
-            await home.activate_vacation(endtime, temperature)
-    else:
-        for hap in hass.data[HMIPC_DOMAIN].values():
-            await hap.home.activate_vacation(endtime, temperature)
+
+#     endtime = service.data[ATTR_ENDTIME]
+#     temperature = service.data[ATTR_TEMPERATURE]
+
+#     if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
+#         if home := _get_home(hass, hapid):
+#             await home.activate_vacation(endtime, temperature)
+#     else:
+#         for hap in hass.data[HMIPC_DOMAIN].values():
+#             await hap.home.activate_vacation(endtime, temperature)
 
 
 async def _async_deactivate_eco_mode(hass: HomeAssistant, service: ServiceCall) -> None:
     """Service to deactivate eco mode."""
-    if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
-        if home := _get_home(hass, hapid):
-            await home.deactivate_absence()
-    else:
-        for hap in hass.data[HMIPC_DOMAIN].values():
-            await hap.home.deactivate_absence()
+
+
+#     if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
+#         if home := _get_home(hass, hapid):
+#             await home.deactivate_absence()
+#     else:
+#         for hap in hass.data[HMIPC_DOMAIN].values():
+#             await hap.home.deactivate_absence()
 
 
 async def _async_deactivate_vacation(hass: HomeAssistant, service: ServiceCall) -> None:
     """Service to deactivate vacation."""
-    if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
-        if home := _get_home(hass, hapid):
-            await home.deactivate_vacation()
-    else:
-        for hap in hass.data[HMIPC_DOMAIN].values():
-            await hap.home.deactivate_vacation()
+
+
+#     if hapid := service.data.get(ATTR_ACCESSPOINT_ID):
+#         if home := _get_home(hass, hapid):
+#             await home.deactivate_vacation()
+#     else:
+#         for hap in hass.data[HMIPC_DOMAIN].values():
+#             await hap.home.deactivate_vacation()
 
 
 async def _set_active_climate_profile(
     hass: HomeAssistant, service: ServiceCall
 ) -> None:
     """Service to set the active climate profile."""
-    entity_id_list = service.data[ATTR_ENTITY_ID]
-    climate_profile_index = service.data[ATTR_CLIMATE_PROFILE_INDEX] - 1
 
-    for hap in hass.data[HMIPC_DOMAIN].values():
-        if entity_id_list != "all":
-            for entity_id in entity_id_list:
-                group = hap.hmip_device_by_entity_id.get(entity_id)
-                if group and isinstance(group, AsyncHeatingGroup):
-                    await group.set_active_profile(climate_profile_index)
-        else:
-            for group in hap.home.groups:
-                if isinstance(group, AsyncHeatingGroup):
-                    await group.set_active_profile(climate_profile_index)
+
+#     entity_id_list = service.data[ATTR_ENTITY_ID]
+#     climate_profile_index = service.data[ATTR_CLIMATE_PROFILE_INDEX] - 1
+
+#     for hap in hass.data[HMIPC_DOMAIN].values():
+#         if entity_id_list != "all":
+#             for entity_id in entity_id_list:
+#                 group = hap.hmip_device_by_entity_id.get(entity_id)
+#                 if group and isinstance(group, AsyncHeatingGroup):
+#                     await group.set_active_profile(climate_profile_index)
+#         else:
+#             for group in hap.home.groups:
+#                 if isinstance(group, AsyncHeatingGroup):
+#                     await group.set_active_profile(climate_profile_index)
 
 
 async def _async_dump_hap_config(hass: HomeAssistant, service: ServiceCall) -> None:
@@ -302,32 +315,35 @@ async def _async_dump_hap_config(hass: HomeAssistant, service: ServiceCall) -> N
         path = Path(config_path)
         config_file = path / file_name
 
-        json_state = await hap.home.download_configuration()
-        json_state = handle_config(json_state, anonymize)
+        state = await hap.runner.async_get_current_state()
+        state_as_string = json.dumps(state, indent=4)
+        json_state = handle_config(state_as_string, anonymize)
 
         config_file.write_text(json_state, encoding="utf8")
 
 
 async def _async_reset_energy_counter(hass: HomeAssistant, service: ServiceCall):
     """Service to reset the energy counter."""
-    entity_id_list = service.data[ATTR_ENTITY_ID]
-
-    for hap in hass.data[HMIPC_DOMAIN].values():
-        if entity_id_list != "all":
-            for entity_id in entity_id_list:
-                device = hap.hmip_device_by_entity_id.get(entity_id)
-                if device and isinstance(device, AsyncSwitchMeasuring):
-                    await device.reset_energy_counter()
-        else:
-            for device in hap.home.devices:
-                if isinstance(device, AsyncSwitchMeasuring):
-                    await device.reset_energy_counter()
 
 
-def _get_home(hass: HomeAssistant, hapid: str) -> AsyncHome | None:
-    """Return a HmIP home."""
-    if hap := hass.data[HMIPC_DOMAIN].get(hapid):
-        return hap.home
+#     entity_id_list = service.data[ATTR_ENTITY_ID]
 
-    _LOGGER.info("No matching access point found for access point id %s", hapid)
-    return None
+#     for hap in hass.data[HMIPC_DOMAIN].values():
+#         if entity_id_list != "all":
+#             for entity_id in entity_id_list:
+#                 device = hap.hmip_device_by_entity_id.get(entity_id)
+#                 if device and isinstance(device, AsyncSwitchMeasuring):
+#                     await device.reset_energy_counter()
+#         else:
+#             for device in hap.home.devices:
+#                 if isinstance(device, AsyncSwitchMeasuring):
+#                     await device.reset_energy_counter()
+
+
+# def _get_home(hass: HomeAssistant, hapid: str) -> AsyncHome | None:
+#     """Return a HmIP home."""
+#     if hap := hass.data[HMIPC_DOMAIN].get(hapid):
+#         return hap.home
+
+#     _LOGGER.info("No matching access point found for access point id %s", hapid)
+#     return None

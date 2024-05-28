@@ -5,9 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homematicip.aio.device import AsyncDevice
-from homematicip.aio.group import AsyncGroup
-from homematicip.base.functionalChannels import FunctionalChannel
+from homematicip.model.hmip_base import HmipBaseModel
+from homematicip.model.model_components import Device, FunctionalChannel, Group
 
 from homeassistant.const import ATTR_ID
 from homeassistant.core import callback
@@ -16,7 +15,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 
 from .const import DOMAIN as HMIPC_DOMAIN
-from .hap import AsyncHome, HomematicipHAP
+from .hap import HomematicipHAP
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,16 +49,19 @@ DEVICE_ATTRIBUTE_ICONS = {
 DEVICE_ATTRIBUTES = {
     "modelType": ATTR_MODEL_TYPE,
     "connectionType": ATTR_CONNECTION_TYPE,
-    "sabotage": ATTR_SABOTAGE,
-    "dutyCycle": ATTR_DUTY_CYCLE_REACHED,
-    "rssiDeviceValue": ATTR_RSSI_DEVICE,
-    "rssiPeerValue": ATTR_RSSI_PEER,
     "deviceOverheated": ATTR_DEVICE_OVERHEATED,
     "deviceOverloaded": ATTR_DEVICE_OVERLOADED,
     "deviceUndervoltage": ATTR_DEVICE_UNTERVOLTAGE,
-    "configPending": ATTR_CONFIG_PENDING,
     "eventDelay": ATTR_EVENT_DELAY,
     "id": ATTR_ID,
+}
+
+BASE_CHANNEL_ATTRIBUTES = {
+    "configPending": ATTR_CONFIG_PENDING,
+    "dutyCycle": ATTR_DUTY_CYCLE_REACHED,
+    "rssiDeviceValue": ATTR_RSSI_DEVICE,
+    "rssiPeerValue": ATTR_RSSI_PEER,
+    "sabotage": ATTR_SABOTAGE,
 }
 
 GROUP_ATTRIBUTES = {
@@ -80,28 +82,38 @@ class HomematicipGenericEntity(Entity):
     def __init__(
         self,
         hap: HomematicipHAP,
-        device,
+        device: HmipBaseModel,
         post: str | None = None,
-        channel: int | None = None,
-        is_multi_channel: bool | None = False,
+        channel_index: int | None = None,
+        is_multi_channel: bool = False,
     ) -> None:
         """Initialize the generic entity."""
-        self._hap = hap
-        self._home: AsyncHome = hap.home
-        self._device = device
-        self._post = post
-        self._channel = channel
-        self._is_multi_channel = is_multi_channel
-        self.functional_channel = self.get_current_channel()
+        self._hap: HomematicipHAP = hap
+        self._device: HmipBaseModel = device
+        self._post: str | None = post
+        self._channel_index: int | None = channel_index
+        self._is_multi_channel: bool = is_multi_channel
         # Marker showing that the HmIP device hase been removed.
         self.hmip_device_removed = False
+        self.functional_channel: FunctionalChannel = None
+        self.base_channel: FunctionalChannel = None
+
+        if hasattr(self._device, "functionalChannels"):
+            self.base_channel = self._device.functionalChannels[str(0)]
+            if str(channel_index) in self._device.functionalChannels:
+                self.functional_channel = self._device.functionalChannels[
+                    str(channel_index)
+                ]
+            else:
+                raise ValueError(f"Channel {channel_index} not found in device")
+
         _LOGGER.info("Setting up %s (%s)", self.name, self._device.modelType)
 
     @property
     def device_info(self) -> DeviceInfo | None:
         """Return device specific attributes."""
         # Only physical devices should be HA devices.
-        if isinstance(self._device, AsyncDevice):
+        if isinstance(self._device, Device):
             return DeviceInfo(
                 identifiers={
                     # Serial numbers of Homematic IP device
@@ -119,8 +131,8 @@ class HomematicipGenericEntity(Entity):
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         self._hap.hmip_device_by_entity_id[self.entity_id] = self._device
-        self._device.on_update(self._async_device_changed)
-        self._device.on_remove(self._async_device_removed)
+        self._device.subscribe_on_update(self._async_device_changed)
+        self._device.subscribe_on_remove(self._async_device_removed)
 
     @callback
     def _async_device_changed(self, *args, **kwargs) -> None:
@@ -153,8 +165,8 @@ class HomematicipGenericEntity(Entity):
     def async_remove_from_registries(self) -> None:
         """Remove entity/device from registry."""
         # Remove callback from device.
-        self._device.remove_callback(self._async_device_changed)
-        self._device.remove_callback(self._async_device_removed)
+        self._device.unsubscribe_on_update(self._async_device_changed)
+        self._device.unsubscribe_on_remove(self._async_device_removed)
 
         if not self.registry_entry:
             return
@@ -190,9 +202,9 @@ class HomematicipGenericEntity(Entity):
         # Try to get a label from a channel.
         if hasattr(self._device, "functionalChannels"):
             if self._is_multi_channel:
-                name = self._device.functionalChannels[self._channel].label
+                name = self.functional_channel.label
             elif len(self._device.functionalChannels) > 1:
-                name = self._device.functionalChannels[1].label
+                name = self._device.functionalChannels[str(1)].label
 
         # Use device label, if name is not defined by channel label.
         if not name:
@@ -200,29 +212,38 @@ class HomematicipGenericEntity(Entity):
             if self._post:
                 name = f"{name} {self._post}"
             elif self._is_multi_channel:
-                name = f"{name} Channel{self._channel}"
+                name = f"{name} Channel{self._channel_index}"
 
         # Add a prefix to the name if the homematic ip home has a name.
-        if name and self._home.name:
-            name = f"{self._home.name} {name}"
+        if name and self._hap.runner.name:
+            name = f"{self._hap.runner.name} {name}"
 
         return name
 
     @property
     def available(self) -> bool:
         """Return if entity is available."""
+        if (
+            isinstance(self._device, Device)
+            and len(self._device.functionalChannels) > 0
+        ):
+            return not self._device.functionalChannels[str(0)].unreach
+
         return not self._device.unreach
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        unique_id = f"{self.__class__.__name__}_{self._device.id}"
-        if self._is_multi_channel:
-            unique_id = (
-                f"{self.__class__.__name__}_Channel{self._channel}_{self._device.id}"
-            )
+        if self.functional_channel is not None:
+            return f"{self.__class__.__name__}_{self._device.id}_Channel{self._channel_index}_{self._device.id}"
 
-        return unique_id
+        return f"{self.__class__.__name__}_{self._device.id}"
+        # if self._is_multi_channel:
+        #     unique_id = (
+        #         f"{self.__class__.__name__}_Channel{self._channel_index}_{self._device.id}"
+        #     )
+
+        # return unique_id
 
     @property
     def icon(self) -> str | None:
@@ -238,14 +259,18 @@ class HomematicipGenericEntity(Entity):
         """Return the state attributes of the generic entity."""
         state_attr = {}
 
-        if isinstance(self._device, AsyncDevice):
+        if isinstance(self._device, Device):
             for attr, attr_key in DEVICE_ATTRIBUTES.items():
                 if attr_value := getattr(self._device, attr, None):
                     state_attr[attr_key] = attr_value
 
+            for attr, attr_key in BASE_CHANNEL_ATTRIBUTES.items():
+                if attr_value := getattr(self.base_channel, attr, None):
+                    state_attr[attr_key] = attr_value
+
             state_attr[ATTR_IS_GROUP] = False
 
-        if isinstance(self._device, AsyncGroup):
+        if isinstance(self._device, Group):
             for attr, attr_key in GROUP_ATTRIBUTES.items():
                 if attr_value := getattr(self._device, attr, None):
                     state_attr[attr_key] = attr_value

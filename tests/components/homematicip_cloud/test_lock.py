@@ -1,8 +1,8 @@
 """Tests for HomematicIP Cloud locks."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
-from homematicip.base.enums import LockState, MotorState
+from homematicip.model.enums import LockState, MotorState
 import pytest
 
 from homeassistant.components.homematicip_cloud import DOMAIN as HMIPC_DOMAIN
@@ -29,14 +29,14 @@ async def test_manually_configured_platform(hass: HomeAssistant) -> None:
 
 
 async def test_hmip_doorlockdrive(
-    hass: HomeAssistant, default_mock_hap_factory
+    hass: HomeAssistant, default_mock_hap_factory, mocker
 ) -> None:
     """Test HomematicipDoorLockDrive."""
     entity_id = "lock.haustuer"
     entity_name = "Haustuer"
     device_model = "HmIP-DLD"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
-        test_devices=[entity_name]
+        test_devices=["3014F7110000000000000DLD"]
     )
 
     ha_state, hmip_device = get_and_check_entity_basics(
@@ -44,46 +44,59 @@ async def test_hmip_doorlockdrive(
     )
 
     assert ha_state.attributes[ATTR_SUPPORTED_FEATURES] == LockEntityFeature.OPEN
+    with patch(
+        "homeassistant.components.homematicip_cloud.lock.action_set_door_state",
+        new=AsyncMock(),
+    ) as mock_action:
+        await hass.services.async_call(
+            "lock",
+            "open",
+            {"entity_id": entity_id},
+            blocking=True,
+        )
+        mock_action.assert_called_once_with(
+            mock_hap.runner, hmip_device.functionalChannels[str(1)], LockState.OPEN
+        )
 
-    await hass.services.async_call(
-        "lock",
-        "open",
-        {"entity_id": entity_id},
-        blocking=True,
-    )
-    assert hmip_device.mock_calls[-1][0] == "set_lock_state"
-    assert hmip_device.mock_calls[-1][1] == (LockState.OPEN,)
+    with patch(
+        "homeassistant.components.homematicip_cloud.lock.action_set_door_state",
+        new=AsyncMock(),
+    ) as mock_action:
+        await hass.services.async_call(
+            "lock",
+            "lock",
+            {"entity_id": entity_id},
+            blocking=True,
+        )
+        mock_action.assert_called_once_with(
+            mock_hap.runner, hmip_device.functionalChannels[str(1)], LockState.LOCKED
+        )
 
-    await hass.services.async_call(
-        "lock",
-        "lock",
-        {"entity_id": entity_id},
-        blocking=True,
-    )
-    assert hmip_device.mock_calls[-1][0] == "set_lock_state"
-    assert hmip_device.mock_calls[-1][1] == (LockState.LOCKED,)
+    with patch(
+        "homeassistant.components.homematicip_cloud.lock.action_set_door_state",
+        new=AsyncMock(),
+    ) as mock_action:
+        await hass.services.async_call(
+            "lock",
+            "unlock",
+            {"entity_id": entity_id},
+            blocking=True,
+        )
+        mock_action.assert_called_once_with(
+            mock_hap.runner, hmip_device.functionalChannels[str(1)], LockState.UNLOCKED
+        )
 
-    await hass.services.async_call(
-        "lock",
-        "unlock",
-        {"entity_id": entity_id},
-        blocking=True,
-    )
+        await async_manipulate_test_data(
+            hass, hmip_device, "motorState", MotorState.CLOSING
+        )
+        ha_state = hass.states.get(entity_id)
+        assert ha_state.state == STATE_LOCKING
 
-    assert hmip_device.mock_calls[-1][0] == "set_lock_state"
-    assert hmip_device.mock_calls[-1][1] == (LockState.UNLOCKED,)
-
-    await async_manipulate_test_data(
-        hass, hmip_device, "motorState", MotorState.CLOSING
-    )
-    ha_state = hass.states.get(entity_id)
-    assert ha_state.state == STATE_LOCKING
-
-    await async_manipulate_test_data(
-        hass, hmip_device, "motorState", MotorState.OPENING
-    )
-    ha_state = hass.states.get(entity_id)
-    assert ha_state.state == STATE_UNLOCKING
+        await async_manipulate_test_data(
+            hass, hmip_device, "motorState", MotorState.OPENING
+        )
+        ha_state = hass.states.get(entity_id)
+        assert ha_state.state == STATE_UNLOCKING
 
 
 async def test_hmip_doorlockdrive_handle_errors(
@@ -94,16 +107,17 @@ async def test_hmip_doorlockdrive_handle_errors(
     entity_name = "Haustuer"
     device_model = "HmIP-DLD"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
-        test_devices=[entity_name]
+        test_devices=["3014F7110000000000000DLD"]
     )
     with patch(
-        "homematicip.aio.device.AsyncDoorLockDrive.set_lock_state",
-        return_value={
+        "homeassistant.components.homematicip_cloud.lock.action_set_door_state",
+        new=AsyncMock(),
+    ) as mocked_action:
+        mocked_action.return_value = {
             "errorCode": "INVALID_NUMBER_PARAMETER_VALUE",
             "minValue": 0.0,
             "maxValue": 1.01,
-        },
-    ):
+        }
         get_and_check_entity_basics(
             hass, mock_hap, entity_id, entity_name, device_model
         )

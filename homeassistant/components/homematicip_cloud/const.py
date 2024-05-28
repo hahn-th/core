@@ -9,15 +9,15 @@ _LOGGER = logging.getLogger(".")
 DOMAIN = "homematicip_cloud"
 
 PLATFORMS = [
-    Platform.ALARM_CONTROL_PANEL,
-    Platform.BINARY_SENSOR,
+    # Platform.ALARM_CONTROL_PANEL,
+    # Platform.BINARY_SENSOR,
     Platform.BUTTON,
-    Platform.CLIMATE,
-    Platform.COVER,
-    Platform.LIGHT,
+    # Platform.CLIMATE,
+    # Platform.COVER,
+    # Platform.LIGHT,
     Platform.LOCK,
-    Platform.SENSOR,
-    Platform.SWITCH,
+    # Platform.SENSOR,
+    # Platform.SWITCH,
     Platform.WEATHER,
 ]
 
@@ -28,3 +28,5 @@ HMIPC_NAME = "name"
 HMIPC_HAPID = "hapid"
 HMIPC_AUTHTOKEN = "authtoken"
 HMIPC_PIN = "pin"
+
+WEBSOCKET_LISTENING_TASK_NAME = "homematicip_cloud_websocket"
