@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 from homematicip.action.functional_channel_actions import (
+    action_set_dim_level,
+    action_set_optical_signal,
     action_set_rgb_dim_level_with_time,
+    action_set_switch_state,
 )
 
 # from homematicip.aio.device import (
@@ -25,6 +28,7 @@ from packaging.version import Version
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_NAME,
+    ATTR_EFFECT,
     ATTR_HS_COLOR,
     ATTR_TRANSITION,
     ColorMode,
@@ -137,15 +141,23 @@ class HomematicipLight(HomematicipGenericEntity, LightEntity):
     @property
     def is_on(self) -> bool:
         """Return true if light is on."""
-        return self._device.on
+        return self.functional_channel.on
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
-        await self._device.turn_on()
+        await action_set_switch_state(
+            rest_connection=self._hap.runner.rest_connection,
+            fc=self.functional_channel,
+            on=True,
+        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
-        await self._device.turn_off()
+        await action_set_switch_state(
+            rest_connection=self._hap.runner.rest_connection,
+            fc=self.functional_channel,
+            on=True,
+        )
 
 
 class HomematicipLightMeasuring(HomematicipLight):
@@ -185,16 +197,26 @@ class HomematicipMultiDimmer(HomematicipGenericEntity, LightEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the dimmer on."""
-        # if ATTR_BRIGHTNESS in kwargs:
-        #     await self._device.set_dim_level(
-        #         kwargs[ATTR_BRIGHTNESS] / 255.0, self._channel
-        #     )
-        # else:
-        #     await self._device.set_dim_level(1, self._channel)
+        if ATTR_BRIGHTNESS in kwargs:
+            await action_set_dim_level(
+                rest_connection=self._hap.runner.rest_connection,
+                fc=self.functional_channel,
+                dim_level=kwargs[ATTR_BRIGHTNESS] / 255.0,
+            )
+        else:
+            await action_set_dim_level(
+                rest_connection=self._hap.runner.rest_connection,
+                fc=self.functional_channel,
+                dim_level=1.0,
+            )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the dimmer off."""
-        # await self._device.set_dim_level(0, self._channel)
+        await action_set_dim_level(
+            rest_connection=self._hap.runner.rest_connection,
+            fc=self.functional_channel,
+            dim_level=0.0,
+        )
 
 
 class HomematicipDimmer(HomematicipMultiDimmer, LightEntity):
@@ -243,6 +265,8 @@ class HomematicipNotificationLight(HomematicipGenericEntity, LightEntity):
     def hs_color(self) -> tuple[float, float]:
         """Return the hue and saturation color value [float, float]."""
         simple_rgb_color = self.functional_channel.simpleRGBColorState
+        if not isinstance(simple_rgb_color, RGBColorState):
+            simple_rgb_color = RGBColorState[simple_rgb_color]
         return self._color_switcher.get(simple_rgb_color, (0.0, 0.0))
 
     @property
@@ -254,11 +278,6 @@ class HomematicipNotificationLight(HomematicipGenericEntity, LightEntity):
             state_attr[ATTR_COLOR_NAME] = self.functional_channel.simpleRGBColorState
 
         return state_attr
-
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID."""
-        return f"{self.__class__.__name__}_{self._post}_{self._device.id}"
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
@@ -281,9 +300,9 @@ class HomematicipNotificationLight(HomematicipGenericEntity, LightEntity):
         transition = kwargs.get(ATTR_TRANSITION, 0.5)
 
         await action_set_rgb_dim_level_with_time(
-            self._hap.runner,
-            self.functional_channel,
-            simple_rgb_color,
+            rest_connection=self._hap.runner.rest_connection,
+            fc=self.functional_channel,
+            rgb=simple_rgb_color,
             dim_level=dim_level,
             on_time=0,
             ramp_time=transition,
@@ -295,9 +314,9 @@ class HomematicipNotificationLight(HomematicipGenericEntity, LightEntity):
         transition = kwargs.get(ATTR_TRANSITION, 0.5)
 
         await action_set_rgb_dim_level_with_time(
-            self._hap.runner,
-            self.functional_channel,
-            simple_rgb_color,
+            rest_connection=self._hap.runner.rest_connection,
+            fc=self.functional_channel,
+            rgb=simple_rgb_color,
             dim_level=0.0,
             on_time=0,
             ramp_time=transition,
@@ -345,6 +364,8 @@ class HomematicipNotificationLightV2(HomematicipGenericEntity, LightEntity):
     def hs_color(self) -> tuple[float, float]:
         """Return the hue and saturation color value [float, float]."""
         simple_rgb_color = self.functional_channel.simpleRGBColorState
+        if not isinstance(simple_rgb_color, RGBColorState):
+            simple_rgb_color = RGBColorState[simple_rgb_color]
         return self._color_switcher.get(simple_rgb_color, (0.0, 0.0))
 
     @property
@@ -372,37 +393,43 @@ class HomematicipNotificationLightV2(HomematicipGenericEntity, LightEntity):
 
         return state_attr
 
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID."""
-        return f"{self.__class__.__name__}_{self._post}_{self._device.id}"
-
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
-        # # Use hs_color from kwargs,
-        # # if not applicable use current hs_color.
-        # hs_color = kwargs.get(ATTR_HS_COLOR, self.hs_color)
-        # simple_rgb_color = _convert_color(hs_color)
+        # Use hs_color from kwargs,
+        # if not applicable use current hs_color.
+        hs_color = kwargs.get(ATTR_HS_COLOR, self.hs_color)
+        simple_rgb_color = _convert_color(hs_color)
 
-        # # If no kwargs, use default value.
-        # brightness = 255
-        # if ATTR_BRIGHTNESS in kwargs:
-        #     brightness = kwargs[ATTR_BRIGHTNESS]
+        # If no kwargs, use default value.
+        brightness = 255
+        if ATTR_BRIGHTNESS in kwargs:
+            brightness = kwargs[ATTR_BRIGHTNESS]
 
-        # # Minimum brightness is 10, otherwise the led is disabled
-        # brightness = max(10, brightness)
-        # dim_level = round(brightness / 255.0, 2)
+        # Minimum brightness is 10, otherwise the led is disabled
+        brightness = max(10, brightness)
+        dim_level = round(brightness / 255.0, 2)
 
-        # effect = self.effect
-        # if ATTR_EFFECT in kwargs:
-        #     effect = kwargs[ATTR_EFFECT]
+        effect = self.effect
+        if ATTR_EFFECT in kwargs:
+            effect = kwargs[ATTR_EFFECT]
 
-        # await self._func_channel.async_set_optical_signal(
-        #     opticalSignalBehaviour=effect, rgb=simple_rgb_color, dimLevel=dim_level
-        # )
+        await action_set_optical_signal(
+            rest_connection=self._hap.runner.rest_connection,
+            fc=self.functional_channel,
+            optical_signal_behaviour=OpticalSignalBehaviour(effect),
+            rgb=simple_rgb_color,
+            dim_level=dim_level,
+        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
+        await action_set_optical_signal(
+            rest_connection=self._hap.runner.rest_connection,
+            fc=self.functional_channel,
+            optical_signal_behaviour=OpticalSignalBehaviour.OFF,
+            rgb=RGBColorState(self.functional_channel.simpleRGBColorState),
+            dim_level=0.0,
+        )
         # await self.functional_channel.async_turn_off()
 
 
@@ -443,7 +470,7 @@ class TypedMappingDict(TypedDict):
 MapFunctionalChannelDevice: dict[str, list[TypedMappingDict]] = {
     "DIMMER_CHANNEL": [
         {
-            "type": HomematicipDimmer,
+            "type": HomematicipMultiDimmer,
             "is_multi_channel": False,
             "post": None,
         }

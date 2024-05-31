@@ -234,7 +234,7 @@ class HomematicipGenericEntity(Entity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        if self.functional_channel is not None:
+        if hasattr(self, "functional_channel") and self.functional_channel is not None:
             return f"{self.__class__.__name__}_{self._device.id}_Channel{self._channel_index}_{self._device.id}"
 
         return f"{self.__class__.__name__}_{self._device.id}"

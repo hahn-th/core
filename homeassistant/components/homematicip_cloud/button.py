@@ -55,7 +55,9 @@ class HomematicipGarageDoorControllerButton(HomematicipGenericEntity, ButtonEnti
 
     async def async_press(self) -> None:
         """Handle the button press."""
-        await action_start_impulse(self._hap.runner, self.functional_channel)
+        await action_start_impulse(
+            self._hap.runner.rest_connection, self.functional_channel
+        )
 
 
 class TypedMappingDict(TypedDict):

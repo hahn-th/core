@@ -91,21 +91,23 @@ class HomematicipDoorLockDrive(HomematicipGenericEntity, LockEntity):
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock the device."""
         return await action_set_door_state(
-            self._hap.runner, self.functional_channel, LockState.LOCKED
+            self._hap.runner.rest_connection, self.functional_channel, LockState.LOCKED
         )
 
     @handle_errors
     async def async_unlock(self, **kwargs: Any) -> None:
         """Unlock the device."""
         return await action_set_door_state(
-            self._hap.runner, self.functional_channel, LockState.UNLOCKED
+            self._hap.runner.rest_connection,
+            self.functional_channel,
+            LockState.UNLOCKED,
         )
 
     @handle_errors
     async def async_open(self, **kwargs: Any) -> None:
         """Open the door latch."""
         return await action_set_door_state(
-            self._hap.runner, self.functional_channel, LockState.OPEN
+            self._hap.runner.rest_connection, self.functional_channel, LockState.OPEN
         )
 
     @property
