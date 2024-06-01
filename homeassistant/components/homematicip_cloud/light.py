@@ -134,10 +134,6 @@ class HomematicipLight(HomematicipGenericEntity, LightEntity):
     _attr_color_mode = ColorMode.ONOFF
     _attr_supported_color_modes = {ColorMode.ONOFF}
 
-    def __init__(self, hap: HomematicipHAP, device) -> None:
-        """Initialize the light entity."""
-        super().__init__(hap, device)
-
     @property
     def is_on(self) -> bool:
         """Return true if light is on."""
@@ -156,7 +152,7 @@ class HomematicipLight(HomematicipGenericEntity, LightEntity):
         await action_set_switch_state(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
-            on=True,
+            on=False,
         )
 
 
@@ -169,18 +165,6 @@ class HomematicipMultiDimmer(HomematicipGenericEntity, LightEntity):
 
     _attr_color_mode = ColorMode.BRIGHTNESS
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
-
-    def __init__(
-        self,
-        hap: HomematicipHAP,
-        device,
-        channel=1,
-        is_multi_channel=True,
-    ) -> None:
-        """Initialize the dimmer light entity."""
-        super().__init__(
-            hap, device, channel_index=channel, is_multi_channel=is_multi_channel
-        )
 
     @property
     def is_on(self) -> bool:
@@ -197,18 +181,15 @@ class HomematicipMultiDimmer(HomematicipGenericEntity, LightEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the dimmer on."""
+        dim_level = 1.0
         if ATTR_BRIGHTNESS in kwargs:
-            await action_set_dim_level(
-                rest_connection=self._hap.runner.rest_connection,
-                fc=self.functional_channel,
-                dim_level=kwargs[ATTR_BRIGHTNESS] / 255.0,
-            )
-        else:
-            await action_set_dim_level(
-                rest_connection=self._hap.runner.rest_connection,
-                fc=self.functional_channel,
-                dim_level=1.0,
-            )
+            dim_level = kwargs[ATTR_BRIGHTNESS] / 255.0
+
+        await action_set_dim_level(
+            rest_connection=self._hap.runner.rest_connection,
+            fc=self.functional_channel,
+            dim_level=dim_level,
+        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the dimmer off."""
@@ -219,12 +200,12 @@ class HomematicipMultiDimmer(HomematicipGenericEntity, LightEntity):
         )
 
 
-class HomematicipDimmer(HomematicipMultiDimmer, LightEntity):
-    """Representation of HomematicIP Cloud dimmer."""
+# class HomematicipDimmer(HomematicipMultiDimmer, LightEntity):
+#     """Representation of HomematicIP Cloud dimmer."""
 
-    def __init__(self, hap: HomematicipHAP, device) -> None:
-        """Initialize the dimmer light entity."""
-        super().__init__(hap, device, is_multi_channel=False)
+#     def __init__(self, hap: HomematicipHAP, device) -> None:
+#         """Initialize the dimmer light entity."""
+#         super().__init__(hap, device, is_multi_channel=False)
 
 
 class HomematicipNotificationLight(HomematicipGenericEntity, LightEntity):
