@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from unittest.mock import AsyncMock, patch
 
 from homematicip.events.event_manager import EventManager
@@ -50,11 +51,11 @@ async def async_manipulate_test_data(
     hass, hmip_device, attribute, new_value, channel=1, fire_device=None
 ):
     """Set new value on hmip device."""
-    if channel == 1:
-        setattr(hmip_device, attribute, new_value)
     if hasattr(hmip_device, "functionalChannels"):
         functional_channel = hmip_device.functionalChannels[str(channel)]
         setattr(functional_channel, attribute, new_value)
+    else:
+        setattr(hmip_device, attribute, new_value)
 
     fire_target = hmip_device if fire_device is None else fire_device
 
@@ -140,7 +141,6 @@ class RunnerMock(Runner):
         self._rest_connection = connection
         self.name = home_name
         self.label = "Home"
-        self.model_type = "HomematicIP Home"
         self.test_devices = test_devices if test_devices is not None else []
         self.test_groups = test_groups if test_groups is not None else []
         self.event_manager = EventManager()
@@ -148,11 +148,30 @@ class RunnerMock(Runner):
         self.init_json_state = json.loads(FIXTURE_DATA)
         self._init_model(self.init_json_state)
         self._cleanup_model()
+        self.model.home.modelType = "HomematicIP Home"
 
     def _cleanup_model(self):
         """Remove all devices and groups from model, which are not in test_devices or test_groups."""
-        self.model.devices = {key: self.model.devices[key] for key in self.test_devices}
-        self.model.groups = {key: self.model.groups[key] for key in self.test_groups}
+
+        self.model.devices = {
+            key: self.model.devices[key]
+            for key in self.test_devices
+            if key in self.model.devices
+        }
+
+        for key in self.test_devices:
+            if key not in self.model.devices:
+                logging.warning("Key %s not found in model devices.", key)
+
+        self.model.groups = {
+            key: self.model.groups[key]
+            for key in self.test_groups
+            if key in self.model.groups
+        }
+
+        for key in self.test_groups:
+            if key not in self.model.groups:
+                logging.warning("Key %s not found in model groups.", key)
 
     def _init_model(self, json_state, clearConfig: bool = False):
         """Update home and ensure that mocks are created."""

@@ -155,7 +155,7 @@ class HomematicipHomeWeather(HomematicipGenericEntity, WeatherEntity):
     @property
     def native_temperature(self) -> float:
         """Return the temperature."""
-        return self._device.weather.temperature
+        return self._hap.model.home.weather.temperature
 
     @property
     def humidity(self) -> int:

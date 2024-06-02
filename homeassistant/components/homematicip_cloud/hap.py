@@ -277,7 +277,7 @@ class HomematicipHAP:
         # Use the title of the config entry as title for the home.
         runner.name = name
         runner.label = self.config_entry.title
-        runner.modelType = "HomematicIP Cloud Home"
+        runner.model.home.modelType = "HomematicIP Cloud Home"
 
         return runner
 

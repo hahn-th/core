@@ -34,7 +34,6 @@ ATTR_GROUP_MEMBER_UNREACHABLE = "group_member_unreachable"
 ATTR_DEVICE_OVERHEATED = "device_overheated"
 ATTR_DEVICE_OVERLOADED = "device_overloaded"
 ATTR_DEVICE_UNTERVOLTAGE = "device_undervoltage"
-ATTR_EVENT_DELAY = "event_delay"
 
 DEVICE_ATTRIBUTE_ICONS = {
     "lowBat": "mdi:battery-outline",
@@ -52,7 +51,6 @@ DEVICE_ATTRIBUTES = {
     "deviceOverheated": ATTR_DEVICE_OVERHEATED,
     "deviceOverloaded": ATTR_DEVICE_OVERLOADED,
     "deviceUndervoltage": ATTR_DEVICE_UNTERVOLTAGE,
-    "eventDelay": ATTR_EVENT_DELAY,
     "id": ATTR_ID,
 }
 
