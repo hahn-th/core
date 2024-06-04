@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import logging
 
-from homematicip.functionalHomes import SecurityAndAlarmHome
+from homematicip.action.home_actions import (
+    action_set_security_zones_activation,
+    get_security_zones_activation,
+)
+from homematicip.model.home import FunctionalHome
 
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity,
@@ -22,7 +26,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import DOMAIN as HMIPC_DOMAIN
-from .hap import AsyncHome, HomematicipHAP
+from .hap import HomematicipHAP
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,18 +55,18 @@ class HomematicipAlarmControlPanelEntity(AlarmControlPanelEntity):
 
     def __init__(self, hap: HomematicipHAP) -> None:
         """Initialize the alarm control panel."""
-        self._home: AsyncHome = hap.home
+        self._hap = hap
         _LOGGER.info("Setting up %s", self.name)
 
     @property
     def device_info(self) -> DeviceInfo:
         """Return device specific attributes."""
         return DeviceInfo(
-            identifiers={(HMIPC_DOMAIN, f"ACP {self._home.id}")},
+            identifiers={(HMIPC_DOMAIN, f"ACP {self._hap.model.home.id}")},
             manufacturer="eQ-3",
             model=CONST_ALARM_CONTROL_PANEL_NAME,
             name=self.name,
-            via_device=(HMIPC_DOMAIN, self._home.id),
+            via_device=(HMIPC_DOMAIN, self._hap.model.home.id),
         )
 
     @property
@@ -72,7 +76,7 @@ class HomematicipAlarmControlPanelEntity(AlarmControlPanelEntity):
         if self._security_and_alarm.alarmActive:
             return STATE_ALARM_TRIGGERED
 
-        activation_state = self._home.get_security_zones_activation()
+        activation_state = get_security_zones_activation(self._hap.model)
         # check arm_away
         if activation_state == (True, True):
             return STATE_ALARM_ARMED_AWAY
@@ -83,24 +87,30 @@ class HomematicipAlarmControlPanelEntity(AlarmControlPanelEntity):
         return STATE_ALARM_DISARMED
 
     @property
-    def _security_and_alarm(self) -> SecurityAndAlarmHome:
-        return self._home.get_functionalHome(SecurityAndAlarmHome)
+    def _security_and_alarm(self) -> FunctionalHome:
+        return self._hap.model.home.functionalHomes.get("SECURITY_AND_ALARM", None)
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:
         """Send disarm command."""
-        await self._home.set_security_zones_activation(False, False)
+        await action_set_security_zones_activation(
+            self._hap.runner.rest_connection, False, False
+        )
 
     async def async_alarm_arm_home(self, code: str | None = None) -> None:
         """Send arm home command."""
-        await self._home.set_security_zones_activation(False, True)
+        await action_set_security_zones_activation(
+            self._hap.runner.rest_connection, False, True
+        )
 
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
         """Send arm away command."""
-        await self._home.set_security_zones_activation(True, True)
+        await action_set_security_zones_activation(
+            self._hap.runner.rest_connection, True, True
+        )
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
-        self._home.on_update(self._async_device_changed)
+        self._hap.model.home.subscribe_on_update(self._async_device_changed)
 
     @callback
     def _async_device_changed(self, *args, **kwargs) -> None:
@@ -122,16 +132,16 @@ class HomematicipAlarmControlPanelEntity(AlarmControlPanelEntity):
     def name(self) -> str:
         """Return the name of the generic entity."""
         name = CONST_ALARM_CONTROL_PANEL_NAME
-        if self._home.name:
-            name = f"{self._home.name} {name}"
+        if self._hap.runner.name:
+            name = f"{self._hap.runner.name} {name}"
         return name
 
     @property
     def available(self) -> bool:
         """Return if alarm control panel is available."""
-        return self._home.connected
+        return self._hap.model.home.connected
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        return f"{self.__class__.__name__}_{self._home.id}"
+        return f"{self.__class__.__name__}_{self._hap.model.home.id}"
