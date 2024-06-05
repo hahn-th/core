@@ -17,7 +17,7 @@ PLATFORMS = [
     Platform.LIGHT,
     Platform.LOCK,
     # Platform.SENSOR,
-    # Platform.SWITCH,
+    Platform.SWITCH,
     Platform.WEATHER,
 ]
 
