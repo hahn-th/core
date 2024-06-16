@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
@@ -54,10 +54,8 @@ async def async_setup_entry(
         if device.functionalChannels:
             channel: FunctionalChannel = None
             for channel in device.functionalChannels.values():
-                if channel.functionalChannelType in MapEntityDescriptions:
-                    for entity_description in MapEntityDescriptions[
-                        channel.functionalChannelType
-                    ]:
+                for entity_description in SENSORS:
+                    if entity_description.exists_fn(channel):
                         entity = HmipEsiSensorEntity(
                             hap=hap,
                             device=device,
@@ -66,6 +64,7 @@ async def async_setup_entry(
                         )
                         entities.append(entity)
 
+                # Search for devices for channel in MapFunctionalChannelDevice
                 if channel.functionalChannelType in MapFunctionalChannelDevice:
                     for target_dict in MapFunctionalChannelDevice[
                         channel.functionalChannelType
@@ -112,9 +111,8 @@ class HmipSensorEntityDescription(SensorEntityDescription):
 
     name: str | None = None
     value_fn: Callable[[FunctionalChannel], StateType]
-    extra_state_attributes_fn: (
-        Callable[[FunctionalChannel], Mapping[str, Any]] | None
-    ) = None
+    extra_state_attributes_fn: dict | None = None
+    exists_fn: Callable[[FunctionalChannel], bool] = lambda channel: False
 
 
 class HmipEsiSensorEntity(HomematicipGenericEntity, SensorEntity):
@@ -142,7 +140,11 @@ class HmipEsiSensorEntity(HomematicipGenericEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         """Return the state of the sensor."""
-        return str(self.entity_description.value_fn(self.functional_channel))
+        ret_val = self.entity_description.value_fn(self.functional_channel)
+        if ret_val is not None:
+            return str(ret_val)
+
+        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -151,11 +153,193 @@ class HmipEsiSensorEntity(HomematicipGenericEntity, SensorEntity):
         extra_state_attr_fn = self.entity_description.extra_state_attributes_fn
 
         if extra_state_attr_fn:
-            extra_state_attr = extra_state_attr_fn(self.functional_channel)
-            if extra_state_attr:
-                state_attr.update(extra_state_attr)
+            for key, value in extra_state_attr_fn.items():
+                if hasattr(self.functional_channel, value):
+                    state_attr[key] = getattr(self.functional_channel, value)
 
         return state_attr
+
+
+SENSORS: tuple[HmipSensorEntityDescription, ...] = (
+    HmipSensorEntityDescription(
+        key="humidity",
+        name="Humidity",
+        value_fn=lambda channel: channel.humidity,
+        device_class=SensorDeviceClass.HUMIDITY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "humidity"),
+    ),
+    HmipSensorEntityDescription(
+        key="temperature",
+        name="Temperature",
+        value_fn=lambda channel: channel.actualTemperature,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "temperature"),
+    ),
+    HmipSensorEntityDescription(
+        key="temperature",
+        name="Temperature",
+        value_fn=lambda channel: channel.actualTemperature,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        extra_state_attributes_fn={ATTR_TEMPERATURE_OFFSET: "temperatureOffset"},
+        exists_fn=lambda channel: hasattr(channel, "actualTemperature"),
+    ),
+    HmipSensorEntityDescription(
+        key="temperature",
+        name="Temperature",
+        value_fn=lambda channel: channel.valveActualTemperature,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        extra_state_attributes_fn={ATTR_TEMPERATURE_OFFSET: "temperatureOffset"},
+        exists_fn=lambda channel: hasattr(channel, "valveActualTemperature"),
+    ),
+    HmipSensorEntityDescription(
+        key="windspeed",
+        name="Windspeed",
+        value_fn=lambda channel: channel.windSpeed,
+        device_class=SensorDeviceClass.WIND_SPEED,
+        native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
+        exists_fn=lambda channel: hasattr(channel, "windSpeed"),
+    ),
+    HmipSensorEntityDescription(
+        key="wind_direction",
+        name="Wind Direction",
+        value_fn=lambda channel: channel.windDirection,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=DEGREE,
+        exists_fn=lambda channel: hasattr(channel, "windDirection"),
+    ),
+    HmipSensorEntityDescription(
+        key="wind_direction_variation",
+        name="Wind Direction Variation",
+        value_fn=lambda channel: channel.windDirectionVariation,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=DEGREE,
+        exists_fn=lambda channel: hasattr(channel, "windDirectionVariation"),
+    ),
+    HmipSensorEntityDescription(
+        key="illuminance",
+        name="Illuminance",
+        value_fn=lambda channel: channel.illumination,
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        native_unit_of_measurement=LIGHT_LUX,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "illumination"),
+    ),
+    HmipSensorEntityDescription(
+        key="today_rain",
+        name="Today Rain",
+        value_fn=lambda channel: round(channel.todayRainCounter, 2),
+        device_class=SensorDeviceClass.PRECIPITATION,
+        native_unit_of_measurement=UnitOfPrecipitationDepth.MILLIMETERS,
+        exists_fn=lambda channel: hasattr(channel, "todayRainCounter"),
+    ),
+    HmipSensorEntityDescription(
+        key="average_illumination",
+        name="Average Illumination",
+        value_fn=lambda channel: channel.averageIllumination,
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        native_unit_of_measurement=LIGHT_LUX,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "averageIllumination"),
+    ),
+    HmipSensorEntityDescription(
+        key="current_illumination",
+        name="Current Illumination",
+        value_fn=lambda channel: channel.currentIllumination,
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        native_unit_of_measurement=LIGHT_LUX,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "currentIllumination"),
+    ),
+    HmipSensorEntityDescription(
+        key="highest_illumination",
+        name="Highest Illumination",
+        value_fn=lambda channel: channel.highestIllumination,
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        native_unit_of_measurement=LIGHT_LUX,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "highestIllumination"),
+    ),
+    HmipSensorEntityDescription(
+        key="lowest_illumination",
+        name="Lowest Illumination",
+        value_fn=lambda channel: channel.lowestIllumination,
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        native_unit_of_measurement=LIGHT_LUX,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "lowestIllumination"),
+    ),
+    HmipSensorEntityDescription(
+        key="duty_cycle",
+        name="Duty Cycle",
+        value_fn=lambda channel: channel.dutyCycleLevel,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "dutyCycleLevel"),
+    ),
+    HmipSensorEntityDescription(
+        key="left_right_counter_delta",
+        name="",
+        value_fn=lambda channel: channel.leftRightCounterDelta,
+        extra_state_attributes_fn={
+            ATTR_LEFT_COUNTER: "leftCounter",
+            ATTR_RIGHT_COUNTER: "rightCounter",
+        },
+        exists_fn=lambda channel: hasattr(channel, "leftRightCounterDelta"),
+    ),
+    HmipSensorEntityDescription(
+        key="ext_1_temperature",
+        name="External 1 Temperature",
+        value_fn=lambda channel: channel.temperatureExternalOne,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "temperatureExternalOne"),
+    ),
+    HmipSensorEntityDescription(
+        key="ext_2_temperature",
+        name="External 2 Temperature",
+        value_fn=lambda channel: channel.temperatureExternalTwo,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "temperatureExternalTwo"),
+    ),
+    HmipSensorEntityDescription(
+        key="ext_delta_temperature",
+        name="Delta Temperature",
+        value_fn=lambda channel: channel.temperatureExternalDelta,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "temperatureExternalDelta"),
+    ),
+    HmipSensorEntityDescription(
+        key="power",
+        name="Power",
+        value_fn=lambda channel: channel.currentPowerConsumption,
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        exists_fn=lambda channel: hasattr(channel, "currentPowerConsumption"),
+    ),
+    HmipSensorEntityDescription(
+        key="energy_counter",
+        name="Energy Counter",
+        value_fn=lambda channel: channel.energyCounter,
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        exists_fn=lambda channel: hasattr(channel, "energyCounter"),
+    ),
+)
 
 
 class TypedMappingDict(TypedDict):
@@ -165,330 +349,6 @@ class TypedMappingDict(TypedDict):
     is_multi_channel: bool
     post: str | None
 
-
-MapEntityDescriptions: dict[str, list[HmipSensorEntityDescription]] = {
-    "CLIMATE_SENSOR_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="humidity",
-            name="Humidity",
-            value_fn=lambda channel: channel.humidity,
-            device_class=SensorDeviceClass.HUMIDITY,
-            native_unit_of_measurement=PERCENTAGE,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="temperature",
-            name="Temperature",
-            value_fn=lambda channel: channel.actualTemperature,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "WEATHER_SENSOR_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="humidity",
-            name="Humidity",
-            value_fn=lambda channel: channel.humidity,
-            device_class=SensorDeviceClass.HUMIDITY,
-            native_unit_of_measurement=PERCENTAGE,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="temperature",
-            name="Temperature",
-            value_fn=lambda channel: channel.actualTemperature,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="windspeed",
-            name="Windspeed",
-            value_fn=lambda channel: channel.windSpeed,
-            device_class=SensorDeviceClass.WIND_SPEED,
-            native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
-        ),
-        HmipSensorEntityDescription(
-            key="illuminance",
-            name="Illuminance",
-            value_fn=lambda channel: channel.illumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "WEATHER_SENSOR_PRO_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="humidity",
-            name="Humidity",
-            value_fn=lambda channel: channel.humidity,
-            device_class=SensorDeviceClass.HUMIDITY,
-            native_unit_of_measurement=PERCENTAGE,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="temperature",
-            name="Temperature",
-            value_fn=lambda channel: channel.actualTemperature,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="windspeed",
-            name="Windspeed",
-            value_fn=lambda channel: channel.windSpeed,
-            device_class=SensorDeviceClass.WIND_SPEED,
-            native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
-        ),
-        HmipSensorEntityDescription(
-            key="wind_direction",
-            name="Wind Direction",
-            value_fn=lambda channel: channel.windDirection,
-            state_class=SensorStateClass.MEASUREMENT,
-            native_unit_of_measurement=DEGREE,
-        ),
-        HmipSensorEntityDescription(
-            key="wind_direction_variation",
-            name="Wind Direction Variation",
-            value_fn=lambda channel: channel.windDirectionVariation,
-            state_class=SensorStateClass.MEASUREMENT,
-            native_unit_of_measurement=DEGREE,
-        ),
-        HmipSensorEntityDescription(
-            key="illuminance",
-            name="Illuminance",
-            value_fn=lambda channel: channel.illumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "WEATHER_SENSOR_PLUS_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="humidity",
-            name="Humidity",
-            value_fn=lambda channel: channel.humidity,
-            device_class=SensorDeviceClass.HUMIDITY,
-            native_unit_of_measurement=PERCENTAGE,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="temperature",
-            name="Temperature",
-            value_fn=lambda channel: channel.actualTemperature,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="windspeed",
-            name="Windspeed",
-            value_fn=lambda channel: channel.windSpeed,
-            device_class=SensorDeviceClass.WIND_SPEED,
-            native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
-        ),
-        HmipSensorEntityDescription(
-            key="today_rain",
-            name="Today Rain",
-            value_fn=lambda channel: round(channel.todayRainCounter, 2),
-            device_class=SensorDeviceClass.PRECIPITATION,
-            native_unit_of_measurement=UnitOfPrecipitationDepth.MILLIMETERS,
-        ),
-        HmipSensorEntityDescription(
-            key="illuminance",
-            name="Illuminance",
-            value_fn=lambda channel: channel.illumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "LIGHT_SENSOR_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="average_illumination",
-            name="Average Illumination",
-            value_fn=lambda channel: channel.averageIllumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="current_illumination",
-            name="Current Illumination",
-            value_fn=lambda channel: channel.currentIllumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="highest_illumination",
-            name="Highest Illumination",
-            value_fn=lambda channel: channel.highestIllumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="lowest_illumination",
-            name="Lowest Illumination",
-            value_fn=lambda channel: channel.lowestIllumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "MOTION_DETECTION_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="illuminance",
-            name="Illuminance",
-            value_fn=lambda channel: channel.illumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "WALL_MOUNTED_THERMOSTAT_PRO_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="humidity",
-            name="Humidity",
-            value_fn=lambda channel: channel.humidity,
-            device_class=SensorDeviceClass.HUMIDITY,
-            native_unit_of_measurement=PERCENTAGE,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="temperature",
-            name="Temperature",
-            value_fn=lambda channel: channel.actualTemperature,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-            extra_state_attributes_fn=lambda channel: {
-                ATTR_TEMPERATURE_OFFSET: channel.temperatureOffset
-            },
-        ),
-    ],
-    "CARBON_DIOXIDE_SENSOR_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="humidity",
-            name="Humidity",
-            value_fn=lambda channel: channel.humidity,
-            device_class=SensorDeviceClass.HUMIDITY,
-            native_unit_of_measurement=PERCENTAGE,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="temperature",
-            name="Temperature",
-            value_fn=lambda channel: channel.actualTemperature,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "ANALOG_ROOM_CONTROL_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="temperature",
-            name="Temperature",
-            value_fn=lambda channel: channel.actualTemperature,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-            extra_state_attributes_fn=lambda channel: {
-                ATTR_TEMPERATURE_OFFSET: channel.temperatureOffset
-            },
-        ),
-    ],
-    "PRESENCE_DETECTION_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="illuminance",
-            name="Illuminance",
-            value_fn=lambda channel: channel.illumination,
-            device_class=SensorDeviceClass.ILLUMINANCE,
-            native_unit_of_measurement=LIGHT_LUX,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "HEATING_THERMOSTAT_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="temperature",
-            name="Temperature",
-            value_fn=lambda channel: channel.valveActualTemperature,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-            extra_state_attributes_fn=lambda channel: {
-                ATTR_TEMPERATURE_OFFSET: channel.temperatureOffset
-            },
-        ),
-    ],
-    "ACCESS_CONTROLLER_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="duty_cycle",
-            name="Duty Cycle",
-            value_fn=lambda channel: channel.dutyCycleLevel,
-            native_unit_of_measurement=PERCENTAGE,
-            state_class=SensorStateClass.MEASUREMENT,
-        )
-    ],
-    "PASSAGE_DETECTOR_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="left_right_counter_delta",
-            name="",
-            value_fn=lambda channel: channel.leftRightCounterDelta,
-            extra_state_attributes_fn=lambda channel: {
-                ATTR_LEFT_COUNTER: channel.leftCounter,
-                ATTR_RIGHT_COUNTER: channel.rightCounter,
-            },
-        )
-    ],
-    "TEMPERATURE_SENSOR_2_EXTERNAL_DELTA_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="ext_1_temperature",
-            name="External 1 Temperature",
-            value_fn=lambda channel: channel.temperatureExternalOne,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="ext_2_temperature",
-            name="External 2 Temperature",
-            value_fn=lambda channel: channel.temperatureExternalTwo,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="ext_delta_temperature",
-            name="Delta Temperature",
-            value_fn=lambda channel: channel.temperatureExternalDelta,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-    ],
-    "SWITCH_MEASURING_CHANNEL": [
-        HmipSensorEntityDescription(
-            key="power",
-            name="Power",
-            value_fn=lambda channel: channel.currentPowerConsumption,
-            device_class=SensorDeviceClass.POWER,
-            native_unit_of_measurement=UnitOfPower.WATT,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HmipSensorEntityDescription(
-            key="energy_counter",
-            name="Energy Counter",
-            value_fn=lambda channel: channel.energyCounter,
-            device_class=SensorDeviceClass.ENERGY,
-            native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-    ],
-}
 
 MapFunctionalChannelDevice: dict[str, list[TypedMappingDict]] = {
     "HEATING_THERMOSTAT_CHANNEL": [
