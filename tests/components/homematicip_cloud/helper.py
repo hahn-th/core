@@ -58,10 +58,6 @@ async def async_manipulate_test_data(
         setattr(hmip_device, attribute, new_value)
 
     fire_target = hmip_device if fire_device is None else fire_device
-
-    # if isinstance(fire_target, AsyncHome):
-    #     fire_target.fire_update_event(fire_target._rawJSONData)
-    # else:
     fire_target.fire_on_update()
 
     await hass.async_block_till_done()

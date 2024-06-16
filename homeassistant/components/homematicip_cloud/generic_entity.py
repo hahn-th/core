@@ -232,10 +232,14 @@ class HomematicipGenericEntity(Entity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        if hasattr(self, "functional_channel") and self.functional_channel is not None:
-            return f"{self.__class__.__name__}_{self._device.id}_Channel{self._channel_index}_{self._device.id}"
+        suffix = ""
+        if self._post is not None:
+            suffix = f"_{self._post}"
 
-        return f"{self.__class__.__name__}_{self._device.id}"
+        if hasattr(self, "functional_channel") and self.functional_channel is not None:
+            return f"{self.__class__.__name__}_Channel{self._channel_index}_{self._device.id}{suffix}"
+
+        return f"{self.__class__.__name__}_{self._device.id}{suffix}"
         # if self._is_multi_channel:
         #     unique_id = (
         #         f"{self.__class__.__name__}_Channel{self._channel_index}_{self._device.id}"
@@ -247,7 +251,9 @@ class HomematicipGenericEntity(Entity):
     def icon(self) -> str | None:
         """Return the icon."""
         for attr, icon in DEVICE_ATTRIBUTE_ICONS.items():
-            if getattr(self._device, attr, None):
+            if getattr(self.base_channel, attr, None) or getattr(
+                self._device, attr, None
+            ):
                 return icon
 
         return None

@@ -4,30 +4,22 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
-# from homematicip.aio.device import (
-#     AsyncAccelerationSensor,
-#     AsyncContactInterface,
-#     AsyncDevice,
-#     AsyncFullFlushContactInterface,
-#     AsyncFullFlushContactInterface6,
-#     AsyncMotionDetectorIndoor,
-#     AsyncMotionDetectorOutdoor,
-#     AsyncMotionDetectorPushButton,
-#     AsyncPluggableMainsFailureSurveillance,
-#     AsyncPresenceDetectorIndoor,
-#     AsyncRainSensor,
-#     AsyncRotaryHandleSensor,
-#     AsyncShutterContact,
-#     AsyncShutterContactMagnetic,
-#     AsyncSmokeDetector,
-#     AsyncTiltVibrationSensor,
-#     AsyncWaterSensor,
-#     AsyncWeatherSensor,
-#     AsyncWeatherSensorPlus,
-#     AsyncWeatherSensorPro,
-#     AsyncWiredInput32,
-# )
-# from homematicip.aio.group import AsyncSecurityGroup, AsyncSecurityZoneGroup
+# assert not ha_state.attributes.get(ATTR_DEVICE_OVERHEATED)
+# assert not ha_state.attributes.get(ATTR_DEVICE_OVERLOADED)
+# assert not ha_state.attributes.get(ATTR_DEVICE_UNTERVOLTAGE)
+# assert not ha_state.attributes.get(ATTR_DUTY_CYCLE_REACHED)
+# assert not ha_state.attributes.get(ATTR_CONFIG_PENDING)
+# await async_manipulate_test_data(hass, hmip_device, "deviceOverheated", True)
+# await async_manipulate_test_data(hass, hmip_device, "deviceOverloaded", True)
+# await async_manipulate_test_data(hass, hmip_device, "deviceUndervoltage", True)
+# await async_manipulate_test_data(hass, hmip_device, "dutyCycle", True)
+# await async_manipulate_test_data(hass, hmip_device, "configPending", True)
+# ha_state = hass.states.get(entity_id)
+# assert ha_state.attributes[ATTR_DEVICE_OVERHEATED]
+# assert ha_state.attributes[ATTR_DEVICE_OVERLOADED]
+# assert ha_state.attributes[ATTR_DEVICE_UNTERVOLTAGE]
+# assert ha_state.attributes[ATTR_DUTY_CYCLE_REACHED]
+# assert ha_state.attributes[ATTR_CONFIG_PENDING]
 from homematicip.model.enums import SmokeDetectorAlarmType, WindowState
 from homematicip.model.hmip_base import HmipBaseModel
 from homematicip.model.model_components import FunctionalChannel
@@ -75,29 +67,6 @@ SAM_DEVICE_ATTRIBUTES = {
 }
 
 
-# ACCELERATION_SENSOR_CHANNEL => HomematicipAccelerationSensor
-# TILT_VIBRATION_SENSOR_CHANNEL => HomematicipTiltVibrationSensor
-# MULTI_MODE_INPUT_CHANNEL => HomematicipMultiContactInterface
-# MULTI_MODE_INPUT_CHANNEL => HomematicipMultiContactInterface
-# SHUTTER_CONTACT_CHANNEL => HomematicipShutterContac
-# ROTARY_HANDLE_CHANNEL => HomematicipShutterContectRotaryHandle
-# MOTION_DETECTION_CHANNEL => HomematicipMotionDetector
-# MAINS_FAILURE_CHANNEL => HomematicipPluggableMainsFailureSurveillanceSensor
-# PRESENCE_DETECTION_CHANNEL => HomematicipPresenceDetector
-# SMOKE_DETECTOR_CHANNEL => HomematicipSmokeDetector
-# WATER_SENSOR_CHANNEL => HomematicipWaterDetector
-# WEATHER_SENSOR_CHANNEL => HomematicipStormSensor
-# WEATHER_SENSOR_CHANNEL => HomematicipSunshineSensor
-# WEATHER_SENSOR_CHANNEL => HomematicipRainSensor
-# WEATHER_SENSOR_PLUS_CHANNEL => HomematicipStormSensor
-# WEATHER_SENSOR_PLUS_CHANNEL => HomematicipSunshineSensor
-# WEATHER_SENSOR_PLUS_CHANNEL => HomematicipRainSensor
-# WEATHER_SENSOR_PRO_CHANNEL => HomematicipStormSensor
-# WEATHER_SENSOR_PRO_CHANNEL => HomematicipSunshineSensor
-# WEATHER_SENSOR_PRO_CHANNEL => HomematicipRainSensor
-# AsyncDevice and device.lowBat is not None => HomematicipBatterySensor
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -143,11 +112,6 @@ async def async_setup_entry(
                         post=target_dict["post"],
                     )
                 )
-    # for group in hap.home.groups:
-    #     if isinstance(group, AsyncSecurityGroup):
-    #         entities.append(HomematicipSecuritySensorGroup(hap, device=group))
-    #     elif isinstance(group, AsyncSecurityZoneGroup):
-    #         entities.append(HomematicipSecurityZoneSensorGroup(hap, device=group))
 
     async_add_entities(entities)
 
@@ -628,11 +592,6 @@ MapFunctionalChannelDevice: dict[str, list[TypedMappingDict]] = {
             "is_multi_channel": False,
             "post": "Sunshine",
         },
-        {
-            "type": HomematicipRainSensor,
-            "is_multi_channel": False,
-            "post": "Raining",
-        },
     ],
     "WEATHER_SENSOR_PLUS_CHANNEL": [
         {
@@ -667,5 +626,12 @@ MapFunctionalChannelDevice: dict[str, list[TypedMappingDict]] = {
             "is_multi_channel": False,
             "post": "Raining",
         },
+    ],
+    "RAIN_DETECTION_CHANNEL": [
+        {
+            "type": HomematicipRainSensor,
+            "is_multi_channel": False,
+            "post": None,
+        }
     ],
 }
