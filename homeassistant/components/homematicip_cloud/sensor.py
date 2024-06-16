@@ -56,7 +56,7 @@ async def async_setup_entry(
             for channel in device.functionalChannels.values():
                 for entity_description in SENSORS:
                     if entity_description.exists_fn(channel):
-                        entity = HmipEsiSensorEntity(
+                        entity = HmipSensorEntity(
                             hap=hap,
                             device=device,
                             channel_index=channel.index,
@@ -115,7 +115,7 @@ class HmipSensorEntityDescription(SensorEntityDescription):
     exists_fn: Callable[[FunctionalChannel], bool] = lambda channel: False
 
 
-class HmipEsiSensorEntity(HomematicipGenericEntity, SensorEntity):
+class HmipSensorEntity(HomematicipGenericEntity, SensorEntity):
     """EntityDescription for HmIP-ESI Sensors."""
 
     entity_description: HmipSensorEntityDescription
