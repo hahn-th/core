@@ -25,6 +25,8 @@ from homeassistant.const import (
     UnitOfPrecipitationDepth,
     UnitOfSpeed,
     UnitOfTemperature,
+    UnitOfVolume,
+    UnitOfVolumeFlowRate,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -39,6 +41,24 @@ ATTR_HIGHEST_ILLUMINATION = "highest_illumination"
 ATTR_LEFT_COUNTER = "left_counter"
 ATTR_RIGHT_COUNTER = "right_counter"
 ATTR_TEMPERATURE_OFFSET = "temperature_offset"
+
+ESI_CONNECTED_SENSOR_TYPE_IEC = "ES_IEC"
+ESI_CONNECTED_SENSOR_TYPE_GAS = "ES_GAS"
+ESI_CONNECTED_SENSOR_TYPE_LED = "ES_LED"
+
+ESI_TYPE_UNKNOWN = "UNKNOWN"
+ESI_TYPE_CURRENT_POWER_CONSUMPTION = "CurrentPowerConsumption"
+ESI_TYPE_CURRENT_POWER_CONSUMPTION_KEY = "current_power_consumption"
+ESI_TYPE_ENERGY_COUNTER_USAGE_HIGH_TARIFF = "ENERGY_COUNTER_USAGE_HIGH_TARIFF"
+ESI_TYPE_ENERGY_COUNTER_USAGE_HIGH_TARIFF_KEY = "energy_counter_usage_high_tariff"
+ESI_TYPE_ENERGY_COUNTER_USAGE_LOW_TARIFF = "ENERGY_COUNTER_USAGE_LOW_TARIFF"
+ESI_TYPE_ENERGY_COUNTER_USAGE_LOW_TARIFF_KEY = "energy_counter_usage_low_tariff"
+ESI_TYPE_ENERGY_COUNTER_INPUT_SINGLE_TARIFF = "ENERGY_COUNTER_INPUT_SINGLE_TARIFF"
+ESI_TYPE_ENERGY_COUNTER_INPUT_SINGLE_TARIFF_KEY = "energy_counter_input_single_tariff"
+ESI_TYPE_CURRENT_GAS_FLOW = "CurrentGasFlow"
+ESI_TYPE_CURRENT_GAS_FLOW_KEY = "current_gas_flow"
+ESI_TYPE_CURRENT_GAS_VOLUME = "GasVolume"
+ESI_TYPE_CURRENT_GAS_VOLUME_KEY = "gas_volume"
 
 
 async def async_setup_entry(
@@ -338,6 +358,102 @@ SENSORS: tuple[HmipSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL_INCREASING,
         exists_fn=lambda channel: hasattr(channel, "energyCounter"),
+    ),
+    # ESI_CONNECTED_SENSOR_TYPE_IEC
+    HmipSensorEntityDescription(
+        key=ESI_TYPE_CURRENT_POWER_CONSUMPTION_KEY,
+        name=ESI_TYPE_CURRENT_POWER_CONSUMPTION,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda channel: channel.currentPowerConsumption,
+        exists_fn=lambda channel: getattr(channel, "currentPowerConsumption", None)
+        is not None
+        and getattr(channel, "connectedEnergySensorType", None)
+        == ESI_CONNECTED_SENSOR_TYPE_IEC,
+    ),
+    HmipSensorEntityDescription(
+        key=ESI_TYPE_ENERGY_COUNTER_USAGE_HIGH_TARIFF_KEY,
+        name=ESI_TYPE_ENERGY_COUNTER_USAGE_HIGH_TARIFF,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda channel: channel.energyCounterOne,
+        exists_fn=lambda channel: getattr(channel, "energyCounterOneType", None)
+        != ESI_TYPE_UNKNOWN
+        and getattr(channel, "connectedEnergySensorType", None)
+        == ESI_CONNECTED_SENSOR_TYPE_IEC,
+    ),
+    HmipSensorEntityDescription(
+        key=ESI_TYPE_ENERGY_COUNTER_USAGE_LOW_TARIFF_KEY,
+        name=ESI_TYPE_ENERGY_COUNTER_USAGE_LOW_TARIFF,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda channel: channel.energyCounterTwo,
+        exists_fn=lambda channel: getattr(channel, "energyCounterTwoType", None)
+        != ESI_TYPE_UNKNOWN
+        and getattr(channel, "connectedEnergySensorType", None)
+        == ESI_CONNECTED_SENSOR_TYPE_IEC,
+    ),
+    HmipSensorEntityDescription(
+        key=ESI_TYPE_ENERGY_COUNTER_INPUT_SINGLE_TARIFF_KEY,
+        name=ESI_TYPE_ENERGY_COUNTER_INPUT_SINGLE_TARIFF,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda channel: channel.energyCounterThree,
+        exists_fn=lambda channel: getattr(channel, "energyCounterThreeType", None)
+        != ESI_TYPE_UNKNOWN
+        and getattr(channel, "connectedEnergySensorType", None)
+        == ESI_CONNECTED_SENSOR_TYPE_IEC,
+    ),
+    # ESI_CONNECTED_SENSOR_TYPE_LED
+    HmipSensorEntityDescription(
+        key=ESI_TYPE_CURRENT_POWER_CONSUMPTION_KEY,
+        name=ESI_TYPE_CURRENT_POWER_CONSUMPTION,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda channel: channel.currentPowerConsumption,
+        exists_fn=lambda channel: getattr(channel, "currentPowerConsumption", None)
+        is not None
+        and getattr(channel, "connectedEnergySensorType", None)
+        == ESI_CONNECTED_SENSOR_TYPE_LED,
+    ),
+    HmipSensorEntityDescription(
+        key=ESI_TYPE_ENERGY_COUNTER_USAGE_HIGH_TARIFF_KEY,
+        name=ESI_TYPE_ENERGY_COUNTER_USAGE_HIGH_TARIFF,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda channel: channel.energyCounterOne,
+        exists_fn=lambda channel: getattr(channel, "energyCounterOne", None) is not None
+        and getattr(channel, "connectedEnergySensorType", None)
+        == ESI_CONNECTED_SENSOR_TYPE_LED,
+    ),
+    # ESI_CONNECTED_SENSOR_TYPE_GAS:
+    HmipSensorEntityDescription(
+        key=ESI_TYPE_CURRENT_GAS_FLOW_KEY,
+        name=ESI_TYPE_CURRENT_GAS_FLOW,
+        native_unit_of_measurement=UnitOfVolumeFlowRate.CUBIC_METERS_PER_HOUR,
+        device_class=SensorDeviceClass.VOLUME_FLOW_RATE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda channel: channel.currentGasFlow,
+        exists_fn=lambda channel: getattr(channel, "currentGasFlow", None) is not None
+        and getattr(channel, "connectedEnergySensorType", None)
+        == ESI_CONNECTED_SENSOR_TYPE_GAS,
+    ),
+    HmipSensorEntityDescription(
+        key=ESI_TYPE_CURRENT_GAS_VOLUME_KEY,
+        name=ESI_TYPE_CURRENT_GAS_VOLUME,
+        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        device_class=SensorDeviceClass.VOLUME,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda channel: channel.gasVolume,
+        exists_fn=lambda channel: getattr(channel, "gasVolume", None) is not None
+        and getattr(channel, "connectedEnergySensorType", None)
+        == ESI_CONNECTED_SENSOR_TYPE_GAS,
     ),
 )
 
