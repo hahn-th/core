@@ -132,7 +132,7 @@ class HmipSensorEntityDescription(SensorEntityDescription):
 
     name: str | None = None
     value_fn: Callable[[FunctionalChannel], StateType]
-    extra_state_attributes_fn: dict | None = None
+    extra_state_attributes: dict | None = None
     exists_fn: Callable[[FunctionalChannel], bool] = lambda channel: False
 
 
@@ -171,12 +171,12 @@ class HmipSensorEntity(HomematicipGenericEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes of the sensor."""
         state_attr = super().extra_state_attributes
-        extra_state_attr_fn = self.entity_description.extra_state_attributes_fn
+        extra_state_attr_fn = self.entity_description.extra_state_attributes
 
         if extra_state_attr_fn:
             for key, value in extra_state_attr_fn.items():
-                if hasattr(self.functional_channel, value):
-                    state_attr[key] = getattr(self.functional_channel, value)
+                if hasattr(self.functional_channel, key):
+                    state_attr[value] = getattr(self.functional_channel, key)
 
         return state_attr
 
@@ -207,7 +207,7 @@ SENSORS: tuple[HmipSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
-        extra_state_attributes_fn={ATTR_TEMPERATURE_OFFSET: "temperatureOffset"},
+        extra_state_attributes={"temperatureOffset": ATTR_TEMPERATURE_OFFSET},
         exists_fn=lambda channel: hasattr(channel, "actualTemperature"),
     ),
     HmipSensorEntityDescription(
@@ -217,7 +217,7 @@ SENSORS: tuple[HmipSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
-        extra_state_attributes_fn={ATTR_TEMPERATURE_OFFSET: "temperatureOffset"},
+        extra_state_attributes={"temperatureOffset": ATTR_TEMPERATURE_OFFSET},
         exists_fn=lambda channel: hasattr(channel, "valveActualTemperature"),
     ),
     HmipSensorEntityDescription(
@@ -309,9 +309,9 @@ SENSORS: tuple[HmipSensorEntityDescription, ...] = (
         key="left_right_counter_delta",
         name="",
         value_fn=lambda channel: channel.leftRightCounterDelta,
-        extra_state_attributes_fn={
-            ATTR_LEFT_COUNTER: "leftCounter",
-            ATTR_RIGHT_COUNTER: "rightCounter",
+        extra_state_attributes={
+            "leftCounter": ATTR_LEFT_COUNTER,
+            "rightCounter": ATTR_RIGHT_COUNTER,
         },
         exists_fn=lambda channel: hasattr(channel, "leftRightCounterDelta"),
     ),
