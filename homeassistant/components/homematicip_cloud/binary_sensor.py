@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, TypedDict
 
 # assert not ha_state.attributes.get(ATTR_DEVICE_OVERHEATED)
@@ -27,6 +29,7 @@ from homematicip.model.model_components import FunctionalChannel
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
+    BinarySensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -80,26 +83,16 @@ async def async_setup_entry(
         if device.functionalChannels:
             channel: FunctionalChannel = None
             for channel in device.functionalChannels.values():
-                if channel.functionalChannelType in MapFunctionalChannelDevice:
-                    for target_dict in MapFunctionalChannelDevice[
-                        channel.functionalChannelType
-                    ]:
-                        target_type: type = target_dict["type"]
-                        entities.append(
-                            target_type(
-                                hap=hap,
-                                device=device,
-                                channel_index=channel.index,
-                                is_multi_channel=target_dict["is_multi_channel"],
-                                post=target_dict["post"],
-                            )
+                for entity_description in SENSORS:
+                    if entity_description.exists_fn(channel):
+                        entity = HmipSensorEntity(
+                            hap=hap,
+                            device=device,
+                            channel_index=channel.index,
+                            entity_description=entity_description,
+                            is_multi_channel=len(device.functionalChannels) > 2,
                         )
-
-    entities = entities + [
-        HomematicipBatterySensor(hap, device)
-        for device in hap.model.devices.values()
-        if device.functionalChannels[str(0)].lowBat is not None
-    ]
+                        entities.append(entity)
 
     for group in hap.model.groups.values():
         if group.type in MapGroups:
@@ -184,14 +177,6 @@ class HomematicipBaseActionSensor(HomematicipGenericEntity, BinarySensorEntity):
         return state_attr
 
 
-class HomematicipAccelerationSensor(HomematicipBaseActionSensor):
-    """Representation of the HomematicIP acceleration sensor."""
-
-
-class HomematicipTiltVibrationSensor(HomematicipBaseActionSensor):
-    """Representation of the HomematicIP tilt vibration sensor."""
-
-
 class HomematicipMultiContactInterface(HomematicipGenericEntity, BinarySensorEntity):
     """Representation of the HomematicIP multi room/area contact interface."""
 
@@ -252,137 +237,6 @@ class HomematicipShutterContectRotaryHandle(HomematicipShutterContact):
             state_attr[ATTR_WINDOW_STATE] = self.functional_channel.windowState
 
         return state_attr
-
-
-class HomematicipMotionDetector(HomematicipGenericEntity, BinarySensorEntity):
-    """Representation of the HomematicIP motion detector."""
-
-    _attr_device_class = BinarySensorDeviceClass.MOTION
-
-    @property
-    def is_on(self) -> bool:
-        """Return true if motion is detected."""
-        return self.functional_channel.motionDetected
-
-
-class HomematicipPresenceDetector(HomematicipGenericEntity, BinarySensorEntity):
-    """Representation of the HomematicIP presence detector."""
-
-    _attr_device_class = BinarySensorDeviceClass.PRESENCE
-
-    @property
-    def is_on(self) -> bool:
-        """Return true if presence is detected."""
-        return self.functional_channel.presenceDetected
-
-
-class HomematicipSmokeDetector(HomematicipGenericEntity, BinarySensorEntity):
-    """Representation of the HomematicIP smoke detector."""
-
-    _attr_device_class = BinarySensorDeviceClass.SMOKE
-
-    @property
-    def is_on(self) -> bool:
-        """Return true if smoke is detected."""
-        if self.functional_channel.smokeDetectorAlarmType:
-            return (
-                self.functional_channel.smokeDetectorAlarmType
-                == SmokeDetectorAlarmType.PRIMARY_ALARM.value
-            )
-        return False
-
-
-class HomematicipWaterDetector(HomematicipGenericEntity, BinarySensorEntity):
-    """Representation of the HomematicIP water detector."""
-
-    _attr_device_class = BinarySensorDeviceClass.MOISTURE
-
-    @property
-    def is_on(self) -> bool:
-        """Return true, if moisture or waterlevel is detected."""
-        return (
-            self.functional_channel.moistureDetected
-            or self.functional_channel.waterlevelDetected
-        )
-
-
-class HomematicipStormSensor(HomematicipGenericEntity, BinarySensorEntity):
-    """Representation of the HomematicIP storm sensor."""
-
-    @property
-    def icon(self) -> str:
-        """Return the icon."""
-        return "mdi:weather-windy" if self.is_on else "mdi:pinwheel-outline"
-
-    @property
-    def is_on(self) -> bool:
-        """Return true, if storm is detected."""
-        return self.functional_channel.storm
-
-
-class HomematicipRainSensor(HomematicipGenericEntity, BinarySensorEntity):
-    """Representation of the HomematicIP rain sensor."""
-
-    _attr_device_class = BinarySensorDeviceClass.MOISTURE
-
-    @property
-    def is_on(self) -> bool:
-        """Return true, if it is raining."""
-        return self.functional_channel.raining
-
-
-class HomematicipSunshineSensor(HomematicipGenericEntity, BinarySensorEntity):
-    """Representation of the HomematicIP sunshine sensor."""
-
-    _attr_device_class = BinarySensorDeviceClass.LIGHT
-
-    @property
-    def is_on(self) -> bool:
-        """Return true if sun is shining."""
-        return self.functional_channel.sunshine
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return the state attributes of the illuminance sensor."""
-        state_attr = super().extra_state_attributes
-
-        today_sunshine_duration = getattr(
-            self.functional_channel, "todaySunshineDuration", None
-        )
-        if today_sunshine_duration:
-            state_attr[ATTR_TODAY_SUNSHINE_DURATION] = today_sunshine_duration
-
-        return state_attr
-
-
-class HomematicipBatterySensor(HomematicipGenericEntity, BinarySensorEntity):
-    """Representation of the HomematicIP low battery sensor."""
-
-    _attr_device_class = BinarySensorDeviceClass.BATTERY
-
-    def __init__(self, hap: HomematicipHAP, device) -> None:
-        """Initialize battery sensor."""
-        super().__init__(
-            hap, device, channel_index=0, is_multi_channel=False, post="Battery"
-        )
-
-    @property
-    def is_on(self) -> bool:
-        """Return true if battery is low."""
-        return self.base_channel.lowBat
-
-
-class HomematicipPluggableMainsFailureSurveillanceSensor(
-    HomematicipGenericEntity, BinarySensorEntity
-):
-    """Representation of the HomematicIP pluggable mains failure surveillance sensor."""
-
-    _attr_device_class = BinarySensorDeviceClass.POWER
-
-    @property
-    def is_on(self) -> bool:
-        """Return true if power mains fails."""
-        return not self.functional_channel.powerMainsFailure
 
 
 class HomematicipSecurityZoneSensorGroup(HomematicipGenericEntity, BinarySensorEntity):
@@ -484,6 +338,149 @@ class HomematicipSecuritySensorGroup(
         return False
 
 
+@dataclass(kw_only=True, frozen=True)
+class HmipEntityDescription(BinarySensorEntityDescription):
+    """SensorEntityDescription for HmIP Sensors.
+
+    extra_state_attributes is the mapping between the hmip device attribute (key) and the home assistant extra-state (value).
+    """
+
+    name: str | None = None
+    value_fn: Callable[[FunctionalChannel], bool | None]
+    extra_state_attributes: dict | None = None
+    exists_fn: Callable[[FunctionalChannel], bool] = lambda channel: False
+
+
+class HmipSensorEntity(HomematicipGenericEntity, BinarySensorEntity):
+    """EntityDescription for HmIP-ESI Sensors."""
+
+    entity_description: HmipEntityDescription
+
+    def __init__(
+        self,
+        hap: HomematicipHAP,
+        device: HomematicipGenericEntity,
+        channel_index: int,
+        entity_description: HmipEntityDescription,
+        is_multi_channel: bool = False,
+    ) -> None:
+        """Initialize Sensor Entity."""
+        super().__init__(
+            hap=hap,
+            device=device,
+            channel_index=channel_index,
+            post=entity_description.name,
+            is_multi_channel=is_multi_channel,
+        )
+        self.entity_description = entity_description
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return the state of the sensor."""
+        return self.entity_description.value_fn(self.functional_channel)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the state attributes of the sensor."""
+        state_attr = super().extra_state_attributes
+        extra_state_attr_fn = self.entity_description.extra_state_attributes
+
+        if extra_state_attr_fn:
+            for key, value in extra_state_attr_fn.items():
+                if hasattr(self.functional_channel, key):
+                    state_attr[value] = getattr(self.functional_channel, key)
+
+        return state_attr
+
+
+SENSORS: tuple[HmipEntityDescription, ...] = (
+    HmipEntityDescription(
+        key="acceleration",
+        name="Acceleration",
+        value_fn=lambda channel: channel.accelerationSensorTriggered,
+        exists_fn=lambda channel: hasattr(channel, "accelerationSensorTriggered"),
+        device_class=BinarySensorDeviceClass.MOVING,
+        extra_state_attributes=SAM_DEVICE_ATTRIBUTES,
+    ),
+    HmipEntityDescription(
+        key="motion_sensor",
+        name="Motion",
+        value_fn=lambda channel: channel.motionDetected,
+        exists_fn=lambda channel: hasattr(channel, "motionDetected"),
+        device_class=BinarySensorDeviceClass.MOTION,
+    ),
+    HmipEntityDescription(
+        key="presence_sensor",
+        name="Presence",
+        value_fn=lambda channel: channel.presenceDetected,
+        exists_fn=lambda channel: hasattr(channel, "presenceDetected"),
+        device_class=BinarySensorDeviceClass.PRESENCE,
+    ),
+    HmipEntityDescription(
+        key="smoke_detector",
+        name="Smoke",
+        value_fn=lambda channel: getattr(channel, "smokeDetectorAlarmType", None)
+        == SmokeDetectorAlarmType.PRIMARY_ALARM.value,
+        exists_fn=lambda channel: hasattr(channel, "smokeDetectorAlarmType"),
+        device_class=BinarySensorDeviceClass.SMOKE,
+    ),
+    HmipEntityDescription(
+        key="moisture",
+        name="Moisture",
+        value_fn=lambda channel: channel.moistureDetected,
+        exists_fn=lambda channel: hasattr(channel, "moistureDetected"),
+        device_class=BinarySensorDeviceClass.MOISTURE,
+    ),
+    HmipEntityDescription(
+        key="water",
+        name="Water",
+        value_fn=lambda channel: channel.waterlevelDetected,
+        exists_fn=lambda channel: hasattr(channel, "waterlevelDetected"),
+        device_class=BinarySensorDeviceClass.MOISTURE,
+    ),
+    HmipEntityDescription(
+        key="storm",
+        name="Storm",
+        value_fn=lambda channel: channel.storm,
+        exists_fn=lambda channel: hasattr(channel, "storm"),
+    ),
+    HmipEntityDescription(
+        key="raining",
+        name="Raining",
+        value_fn=lambda channel: channel.raining,
+        exists_fn=lambda channel: hasattr(channel, "raining"),
+    ),
+    HmipEntityDescription(
+        key="sunshine",
+        name="Sunshine",
+        value_fn=lambda channel: channel.sunshine,
+        exists_fn=lambda channel: hasattr(channel, "sunshine"),
+        device_class=BinarySensorDeviceClass.LIGHT,
+    ),
+    HmipEntityDescription(
+        key="battery",
+        name="Battery",
+        value_fn=lambda channel: channel.lowBat,
+        exists_fn=lambda channel: hasattr(channel, "lowBat"),
+        device_class=BinarySensorDeviceClass.BATTERY,
+    ),
+    HmipEntityDescription(
+        key="mains_failure",
+        value_fn=lambda channel: not channel.powerMainsFailure,
+        exists_fn=lambda channel: hasattr(channel, "powerMainsFailure"),
+        device_class=BinarySensorDeviceClass.POWER,
+    ),
+    HmipEntityDescription(
+        key="window",
+        value_fn=lambda channel: None
+        if channel.windowState is None
+        else channel.windowState != WindowState.CLOSED.value,
+        exists_fn=lambda channel: hasattr(channel, "windowState"),
+        device_class=BinarySensorDeviceClass.OPENING,
+    ),
+)
+
+
 class TypedMappingDict(TypedDict):
     """TypedDict for mapping functional channel types to their classes."""
 
@@ -505,133 +502,6 @@ MapGroups: dict[str, list[TypedMappingDict]] = {
             "type": HomematicipSecurityZoneSensorGroup,
             "is_multi_channel": False,
             "post": "SecurityZone",
-        }
-    ],
-}
-
-
-MapFunctionalChannelDevice: dict[str, list[TypedMappingDict]] = {
-    "ACCELERATION_SENSOR_CHANNEL": [
-        {
-            "type": HomematicipAccelerationSensor,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "TILT_VIBRATION_SENSOR_CHANNEL": [
-        {
-            "type": HomematicipTiltVibrationSensor,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "MULTI_MODE_INPUT_CHANNEL": [
-        {
-            "type": HomematicipMultiContactInterface,
-            "is_multi_channel": True,
-            "post": None,
-        }
-    ],
-    "SHUTTER_CONTACT_CHANNEL": [
-        {
-            "type": HomematicipShutterContact,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "ROTARY_HANDLE_CHANNEL": [
-        {
-            "type": HomematicipShutterContectRotaryHandle,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "MOTION_DETECTION_CHANNEL": [
-        {
-            "type": HomematicipMotionDetector,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "MAINS_FAILURE_CHANNEL": [
-        {
-            "type": HomematicipPluggableMainsFailureSurveillanceSensor,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "PRESENCE_DETECTION_CHANNEL": [
-        {
-            "type": HomematicipPresenceDetector,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "SMOKE_DETECTOR_CHANNEL": [
-        {
-            "type": HomematicipSmokeDetector,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "WATER_SENSOR_CHANNEL": [
-        {
-            "type": HomematicipWaterDetector,
-            "is_multi_channel": False,
-            "post": None,
-        }
-    ],
-    "WEATHER_SENSOR_CHANNEL": [
-        {
-            "type": HomematicipStormSensor,
-            "is_multi_channel": False,
-            "post": "Storm",
-        },
-        {
-            "type": HomematicipSunshineSensor,
-            "is_multi_channel": False,
-            "post": "Sunshine",
-        },
-    ],
-    "WEATHER_SENSOR_PLUS_CHANNEL": [
-        {
-            "type": HomematicipStormSensor,
-            "is_multi_channel": False,
-            "post": "Storm",
-        },
-        {
-            "type": HomematicipSunshineSensor,
-            "is_multi_channel": False,
-            "post": "Sunshine",
-        },
-        {
-            "type": HomematicipRainSensor,
-            "is_multi_channel": False,
-            "post": "Raining",
-        },
-    ],
-    "WEATHER_SENSOR_PRO_CHANNEL": [
-        {
-            "type": HomematicipStormSensor,
-            "is_multi_channel": False,
-            "post": "Storm",
-        },
-        {
-            "type": HomematicipSunshineSensor,
-            "is_multi_channel": False,
-            "post": "Sunshine",
-        },
-        {
-            "type": HomematicipRainSensor,
-            "is_multi_channel": False,
-            "post": "Raining",
-        },
-    ],
-    "RAIN_DETECTION_CHANNEL": [
-        {
-            "type": HomematicipRainSensor,
-            "is_multi_channel": False,
-            "post": None,
         }
     ],
 }

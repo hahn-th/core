@@ -712,3 +712,37 @@ async def test_hmip_esi_gas_gas_volume(
     )
 
     assert ha_state.state == "1019.26"
+
+
+async def test_hmip_today_sunshine_sensor(
+    hass: HomeAssistant, default_mock_hap_factory
+) -> None:
+    """Test HomematicipTodaySunshineSensor."""
+    entity_id = "sensor.weather_sensor_plus_today_sunshine_duration"
+    entity_name = "Weather Sensor – plus Today Sunshine Duration"
+    device_model = "HmIP-SWO-PL"
+    mock_hap = await default_mock_hap_factory.async_get_mock_hap(
+        test_devices=["3014F7110000000000000038"]
+    )
+
+    ha_state, hmip_device = get_and_check_entity_basics(
+        hass, mock_hap, entity_id, entity_name, device_model
+    )
+    assert ha_state.state == "0"
+
+
+async def test_hmip_total_sunshine_sensor(
+    hass: HomeAssistant, default_mock_hap_factory
+) -> None:
+    """Test HomematicipTotalSunshineSensor."""
+    entity_id = "sensor.weather_sensor_plus_total_sunshine_duration"
+    entity_name = "Weather Sensor – plus Total Sunshine Duration"
+    device_model = "HmIP-SWO-PL"
+    mock_hap = await default_mock_hap_factory.async_get_mock_hap(
+        test_devices=["3014F7110000000000000038"]
+    )
+
+    ha_state, hmip_device = get_and_check_entity_basics(
+        hass, mock_hap, entity_id, entity_name, device_model
+    )
+    assert ha_state.state == "132057"

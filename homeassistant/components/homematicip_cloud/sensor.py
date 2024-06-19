@@ -25,6 +25,7 @@ from homeassistant.const import (
     UnitOfPrecipitationDepth,
     UnitOfSpeed,
     UnitOfTemperature,
+    UnitOfTime,
     UnitOfVolume,
     UnitOfVolumeFlowRate,
 )
@@ -454,6 +455,22 @@ SENSORS: tuple[HmipSensorEntityDescription, ...] = (
         exists_fn=lambda channel: getattr(channel, "gasVolume", None) is not None
         and getattr(channel, "connectedEnergySensorType", None)
         == ESI_CONNECTED_SENSOR_TYPE_GAS,
+    ),
+    HmipSensorEntityDescription(
+        key="today_sunshine_duration",
+        name="Today Sunshine Duration",
+        value_fn=lambda channel: channel.todaySunshineDuration,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        exists_fn=lambda channel: hasattr(channel, "todaySunshineDuration"),
+    ),
+    HmipSensorEntityDescription(
+        key="total_sunshine_duration",
+        name="Total Sunshine Duration",
+        value_fn=lambda channel: channel.totalSunshineDuration,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        exists_fn=lambda channel: hasattr(channel, "totalSunshineDuration"),
     ),
 )
 

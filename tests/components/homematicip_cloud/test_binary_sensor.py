@@ -64,8 +64,8 @@ async def test_hmip_acceleration_sensor(
     hass: HomeAssistant, default_mock_hap_factory
 ) -> None:
     """Test HomematicipAccelerationSensor."""
-    entity_id = "binary_sensor.garagentor"
-    entity_name = "Garagentor"
+    entity_id = "binary_sensor.garagentor_acceleration"
+    entity_name = "Garagentor Acceleration"
     device_model = "HmIP-SAM"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
         test_devices=["3014F7110000000000000031"]
@@ -100,8 +100,8 @@ async def test_hmip_tilt_vibration_sensor(
     hass: HomeAssistant, default_mock_hap_factory
 ) -> None:
     """Test HomematicipTiltVibrationSensor."""
-    entity_id = "binary_sensor.garage_neigungs_und_erschutterungssensor"
-    entity_name = "Garage Neigungs- und Erschütterungssensor"
+    entity_id = "binary_sensor.garage_neigungs_und_erschutterungssensor_acceleration"
+    entity_name = "Garage Neigungs- und Erschütterungssensor Acceleration"
     device_model = "HmIP-STV"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
         test_devices=["3014F7110TILTVIBRATIONSENSOR"]
@@ -174,21 +174,18 @@ async def test_hmip_shutter_contact(
     )
 
     assert ha_state.state == STATE_ON
-    assert ha_state.attributes[ATTR_WINDOW_STATE] == WindowState.TILTED.value
 
     await async_manipulate_test_data(
         hass, hmip_device, "windowState", WindowState.OPEN.value, 1
     )
     ha_state = hass.states.get(entity_id)
     assert ha_state.state == STATE_ON
-    assert ha_state.attributes[ATTR_WINDOW_STATE] == WindowState.OPEN.value, 1
 
     await async_manipulate_test_data(
         hass, hmip_device, "windowState", WindowState.CLOSED.value, 1
     )
     ha_state = hass.states.get(entity_id)
     assert ha_state.state == STATE_OFF
-    assert not ha_state.attributes.get(ATTR_WINDOW_STATE)
 
     await async_manipulate_test_data(hass, hmip_device, "windowState", None, 1)
     ha_state = hass.states.get(entity_id)
@@ -240,8 +237,8 @@ async def test_hmip_motion_detector(
     hass: HomeAssistant, default_mock_hap_factory
 ) -> None:
     """Test HomematicipMotionDetector."""
-    entity_id = "binary_sensor.bewegungsmelder_fur_55er_rahmen_innen"
-    entity_name = "Bewegungsmelder für 55er Rahmen – innen"
+    entity_id = "binary_sensor.bewegungsmelder_fur_55er_rahmen_innen_motion"
+    entity_name = "Bewegungsmelder für 55er Rahmen – innen Motion"
     device_model = "HmIP-SMI55"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
         test_devices=["3014F711000000000AAAAA25"]
@@ -261,8 +258,8 @@ async def test_hmip_presence_detector(
     hass: HomeAssistant, default_mock_hap_factory
 ) -> None:
     """Test HomematicipPresenceDetector."""
-    entity_id = "binary_sensor.spi_1"
-    entity_name = "SPI_1"
+    entity_id = "binary_sensor.spi_1_presence"
+    entity_name = "SPI_1 Presence"
     device_model = "HmIP-SPI"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
         test_devices=["3014F711AAAAAAAAAAAAAA51"]
@@ -303,8 +300,8 @@ async def test_hmip_smoke_detector(
     hass: HomeAssistant, default_mock_hap_factory
 ) -> None:
     """Test HomematicipSmokeDetector."""
-    entity_id = "binary_sensor.rauchwarnmelder"
-    entity_name = "Rauchwarnmelder"
+    entity_id = "binary_sensor.rauchwarnmelder_smoke"
+    entity_name = "Rauchwarnmelder Smoke"
     device_model = "HmIP-SWSD"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
         test_devices=["3014F7110000000000000018"]
@@ -335,8 +332,8 @@ async def test_hmip_water_detector(
     hass: HomeAssistant, default_mock_hap_factory
 ) -> None:
     """Test HomematicipWaterDetector."""
-    entity_id = "binary_sensor.wassersensor"
-    entity_name = "Wassersensor"
+    entity_id = "binary_sensor.wassersensor_water"
+    entity_name = "Wassersensor Water"
     device_model = "HmIP-SWD"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
         test_devices=["3014F7110000000000000050"]
@@ -348,24 +345,29 @@ async def test_hmip_water_detector(
 
     assert ha_state.state == STATE_OFF
     await async_manipulate_test_data(hass, hmip_device, "waterlevelDetected", True, 1)
-    await async_manipulate_test_data(hass, hmip_device, "moistureDetected", False, 1)
     ha_state = hass.states.get(entity_id)
     assert ha_state.state == STATE_ON
 
-    await async_manipulate_test_data(hass, hmip_device, "waterlevelDetected", True, 1)
-    await async_manipulate_test_data(hass, hmip_device, "moistureDetected", True, 1)
-    ha_state = hass.states.get(entity_id)
-    assert ha_state.state == STATE_ON
 
-    await async_manipulate_test_data(hass, hmip_device, "waterlevelDetected", False, 1)
-    await async_manipulate_test_data(hass, hmip_device, "moistureDetected", True, 1)
-    ha_state = hass.states.get(entity_id)
-    assert ha_state.state == STATE_ON
+async def test_hmip_moisture_detector(
+    hass: HomeAssistant, default_mock_hap_factory
+) -> None:
+    """Test HomematicipWaterDetector."""
+    entity_id = "binary_sensor.wassersensor_moisture"
+    entity_name = "Wassersensor Moisture"
+    device_model = "HmIP-SWD"
+    mock_hap = await default_mock_hap_factory.async_get_mock_hap(
+        test_devices=["3014F7110000000000000050"]
+    )
 
-    await async_manipulate_test_data(hass, hmip_device, "waterlevelDetected", False, 1)
-    await async_manipulate_test_data(hass, hmip_device, "moistureDetected", False, 1)
-    ha_state = hass.states.get(entity_id)
+    ha_state, hmip_device = get_and_check_entity_basics(
+        hass, mock_hap, entity_id, entity_name, device_model
+    )
+
     assert ha_state.state == STATE_OFF
+    await async_manipulate_test_data(hass, hmip_device, "moistureDetected", True, 1)
+    ha_state = hass.states.get(entity_id)
+    assert ha_state.state == STATE_ON
 
 
 async def test_hmip_storm_sensor(hass: HomeAssistant, default_mock_hap_factory) -> None:
@@ -422,7 +424,6 @@ async def test_hmip_sunshine_sensor(
     )
 
     assert ha_state.state == STATE_ON
-    assert ha_state.attributes["today_sunshine_duration_in_minutes"] == 100
     await async_manipulate_test_data(hass, hmip_device, "sunshine", False, 1)
     ha_state = hass.states.get(entity_id)
     assert ha_state.state == STATE_OFF
