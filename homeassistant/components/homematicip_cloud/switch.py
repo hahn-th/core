@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
-from homematicip.action.functional_channel_actions import action_set_switch_state
-from homematicip.action.group_actions import group_action_set_switch_state
+from homematicip.action.functional_channel_actions import async_set_switch_state_fc
+from homematicip.action.group_actions import async_set_switch_state_group
 from homematicip.model.hmip_base import HmipBaseModel
 from homematicip.model.model_components import FunctionalChannel
 
@@ -143,13 +143,13 @@ class HomematicipSwitch(HomematicipGenericEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        await action_set_switch_state(
+        await async_set_switch_state_fc(
             self._hap.runner.rest_connection, self.functional_channel, True
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        await action_set_switch_state(
+        await async_set_switch_state_fc(
             self._hap.runner.rest_connection, self.functional_channel, False
         )
 
@@ -196,7 +196,7 @@ class HomematicipGroupSwitch(HomematicipGenericEntity, SwitchEntity):
 
     async def _set_switch_state(self, state: bool) -> None:
         """Set the switch state of the group."""
-        await group_action_set_switch_state(
+        await async_set_switch_state_group(
             self._hap.runner.rest_connection, self._device, state
         )
 

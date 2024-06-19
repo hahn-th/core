@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, TypedDict
 
-from homematicip.action.functional_channel_actions import action_set_door_state
+from homematicip.action.functional_channel_actions import async_set_door_state_fc
 from homematicip.model.enums import LockState, MotorState
 
 from homeassistant.components.lock import LockEntity, LockEntityFeature
@@ -90,14 +90,14 @@ class HomematicipDoorLockDrive(HomematicipGenericEntity, LockEntity):
     @handle_errors
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock the device."""
-        return await action_set_door_state(
+        return await async_set_door_state_fc(
             self._hap.runner.rest_connection, self.functional_channel, LockState.LOCKED
         )
 
     @handle_errors
     async def async_unlock(self, **kwargs: Any) -> None:
         """Unlock the device."""
-        return await action_set_door_state(
+        return await async_set_door_state_fc(
             self._hap.runner.rest_connection,
             self.functional_channel,
             LockState.UNLOCKED,
@@ -106,7 +106,7 @@ class HomematicipDoorLockDrive(HomematicipGenericEntity, LockEntity):
     @handle_errors
     async def async_open(self, **kwargs: Any) -> None:
         """Open the door latch."""
-        return await action_set_door_state(
+        return await async_set_door_state_fc(
             self._hap.runner.rest_connection, self.functional_channel, LockState.OPEN
         )
 

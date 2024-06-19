@@ -127,7 +127,7 @@ async def test_hmip_doorlockdrive_handle_errors(
         test_devices=["3014F7110000000000000DLD"]
     )
     with patch(
-        "homeassistant.components.homematicip_cloud.lock.action_set_door_state",
+        "homeassistant.components.homematicip_cloud.lock.async_set_door_state_fc",
         new=AsyncMock(),
     ) as mocked_action:
         mocked_action.return_value = {

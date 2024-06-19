@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from homematicip.action.functional_channel_actions import action_start_impulse
+from homematicip.action.functional_channel_actions import async_start_impulse_fc
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -55,7 +55,7 @@ class HomematicipGarageDoorControllerButton(HomematicipGenericEntity, ButtonEnti
 
     async def async_press(self) -> None:
         """Handle the button press."""
-        await action_start_impulse(
+        await async_start_impulse_fc(
             self._hap.runner.rest_connection, self.functional_channel
         )
 

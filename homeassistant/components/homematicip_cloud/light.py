@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 from homematicip.action.functional_channel_actions import (
-    action_set_dim_level,
-    action_set_optical_signal,
-    action_set_rgb_dim_level_with_time,
-    action_set_switch_state,
+    async_set_dim_level_fc,
+    async_set_optical_signal_fc,
+    async_set_rgb_dim_level_with_time_fc,
+    async_set_switch_state_fc,
 )
 
 # from homematicip.aio.device import (
@@ -141,7 +141,7 @@ class HomematicipLight(HomematicipGenericEntity, LightEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
-        await action_set_switch_state(
+        await async_set_switch_state_fc(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
             on=True,
@@ -149,7 +149,7 @@ class HomematicipLight(HomematicipGenericEntity, LightEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
-        await action_set_switch_state(
+        await async_set_switch_state_fc(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
             on=False,
@@ -185,7 +185,7 @@ class HomematicipMultiDimmer(HomematicipGenericEntity, LightEntity):
         if ATTR_BRIGHTNESS in kwargs:
             dim_level = kwargs[ATTR_BRIGHTNESS] / 255.0
 
-        await action_set_dim_level(
+        await async_set_dim_level_fc(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
             dim_level=dim_level,
@@ -193,7 +193,7 @@ class HomematicipMultiDimmer(HomematicipGenericEntity, LightEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the dimmer off."""
-        await action_set_dim_level(
+        await async_set_dim_level_fc(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
             dim_level=0.0,
@@ -280,7 +280,7 @@ class HomematicipNotificationLight(HomematicipGenericEntity, LightEntity):
         dim_level = brightness / 255.0
         transition = kwargs.get(ATTR_TRANSITION, 0.5)
 
-        await action_set_rgb_dim_level_with_time(
+        await async_set_rgb_dim_level_with_time_fc(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
             rgb=simple_rgb_color,
@@ -294,7 +294,7 @@ class HomematicipNotificationLight(HomematicipGenericEntity, LightEntity):
         simple_rgb_color = self.functional_channel.simpleRGBColorState
         transition = kwargs.get(ATTR_TRANSITION, 0.5)
 
-        await action_set_rgb_dim_level_with_time(
+        await async_set_rgb_dim_level_with_time_fc(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
             rgb=simple_rgb_color,
@@ -394,7 +394,7 @@ class HomematicipNotificationLightV2(HomematicipGenericEntity, LightEntity):
         if ATTR_EFFECT in kwargs:
             effect = kwargs[ATTR_EFFECT]
 
-        await action_set_optical_signal(
+        await async_set_optical_signal_fc(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
             optical_signal_behaviour=OpticalSignalBehaviour(effect),
@@ -404,7 +404,7 @@ class HomematicipNotificationLightV2(HomematicipGenericEntity, LightEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
-        await action_set_optical_signal(
+        await async_set_optical_signal_fc(
             rest_connection=self._hap.runner.rest_connection,
             fc=self.functional_channel,
             optical_signal_behaviour=OpticalSignalBehaviour.OFF,
