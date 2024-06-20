@@ -395,6 +395,30 @@ class HmipSensorEntity(HomematicipGenericEntity, BinarySensorEntity):
 
 SENSORS: tuple[HmipEntityDescription, ...] = (
     HmipEntityDescription(
+        key="overheated",
+        name="Overheated",
+        value_fn=lambda channel: channel.deviceOverheated,
+        exists_fn=lambda channel: hasattr(channel, "supportedOptionalFeatures")
+        and dict.get(channel.supportedOptionalFeatures, "IFeatureDeviceOverheated")
+        is True,
+    ),
+    HmipEntityDescription(
+        key="overloaded",
+        name="Overloaded",
+        value_fn=lambda channel: channel.deviceOverloaded,
+        exists_fn=lambda channel: hasattr(channel, "supportedOptionalFeatures")
+        and dict.get(channel.supportedOptionalFeatures, "IFeatureDeviceOverloaded")
+        is True,
+    ),
+    HmipEntityDescription(
+        key="undervoltage",
+        name="Undervoltage",
+        value_fn=lambda channel: channel.deviceUndervoltage,
+        exists_fn=lambda channel: hasattr(channel, "supportedOptionalFeatures")
+        and dict.get(channel.supportedOptionalFeatures, "IFeatureDeviceUndervoltage")
+        is True,
+    ),
+    HmipEntityDescription(
         key="acceleration",
         name="Acceleration",
         value_fn=lambda channel: channel.accelerationSensorTriggered,
@@ -461,7 +485,9 @@ SENSORS: tuple[HmipEntityDescription, ...] = (
         key="battery",
         name="Battery",
         value_fn=lambda channel: channel.lowBat,
-        exists_fn=lambda channel: hasattr(channel, "lowBat"),
+        exists_fn=lambda channel: hasattr(channel, "supportedOptionalFeatures")
+        and dict.get(channel.supportedOptionalFeatures, "IOptionalFeatureLowBat")
+        is True,
         device_class=BinarySensorDeviceClass.BATTERY,
     ),
     HmipEntityDescription(

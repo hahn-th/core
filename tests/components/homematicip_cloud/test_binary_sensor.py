@@ -433,11 +433,11 @@ async def test_hmip_battery_sensor(
     hass: HomeAssistant, default_mock_hap_factory
 ) -> None:
     """Test HomematicipSunshineSensor."""
-    entity_id = "binary_sensor.wohnungsture_battery"
-    entity_name = "Wohnungstüre Battery"
-    device_model = "HMIP-SWDO"
+    entity_id = "binary_sensor.thermostat_evo_battery"
+    entity_name = "thermostat_evo Battery"
+    device_model = "HmIP-eTRV-E"
     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
-        test_devices=["3014F7110000000000000006"]
+        test_devices=["3014F7110000000000000E70"]
     )
 
     ha_state, hmip_device = get_and_check_entity_basics(
@@ -605,3 +605,91 @@ async def test_hmip_multi_contact_interface(
     )
 
     assert ha_state.state == STATE_UNKNOWN
+
+
+async def test_hmip_overheated_sensor(
+    hass: HomeAssistant, default_mock_hap_factory
+) -> None:
+    """Test HomematicipOverheatedSensor."""
+    entity_id = "binary_sensor.wired_eingangsmodul_32_fach_overheated"
+    entity_name = "Wired Eingangsmodul – 32-fach Overheated"
+    device_model = "HmIPW-DRI32"
+    mock_hap = await default_mock_hap_factory.async_get_mock_hap(
+        test_devices=["3014F711000WIREDINPUT32"]
+    )
+
+    ha_state, hmip_device = get_and_check_entity_basics(
+        hass, mock_hap, entity_id, entity_name, device_model
+    )
+
+    assert ha_state.state == STATE_OFF
+
+    await async_manipulate_test_data(hass, hmip_device, "deviceOverheated", True, 0)
+    ha_state = hass.states.get(entity_id)
+    assert ha_state.state == STATE_ON
+
+
+async def test_hmip_overheated_sensor2(
+    hass: HomeAssistant, default_mock_hap_factory
+) -> None:
+    """Test HomematicipOverheatedSensor."""
+    entity_id = "binary_sensor.wohnzimmer_beleuchtung_overheated"
+    entity_name = "Wohnzimmer Beleuchtung Overheated"
+    device_model = "HmIP-FSI16"
+    mock_hap = await default_mock_hap_factory.async_get_mock_hap(
+        test_devices=["3014F7110000000HmIPFSI16"]
+    )
+
+    ha_state, hmip_device = get_and_check_entity_basics(
+        hass, mock_hap, entity_id, entity_name, device_model
+    )
+
+    assert ha_state.state == STATE_OFF
+
+    await async_manipulate_test_data(hass, hmip_device, "deviceOverheated", True, 0)
+    ha_state = hass.states.get(entity_id)
+    assert ha_state.state == STATE_ON
+
+
+async def test_hmip_overloaded_sensor(
+    hass: HomeAssistant, default_mock_hap_factory
+) -> None:
+    """Test HomematicipOverloadedSensor."""
+    entity_id = "binary_sensor.schliesser_magnet_overloaded"
+    entity_name = "Schließer Magnet Overloaded"
+    device_model = "HmIP-SCI"
+    mock_hap = await default_mock_hap_factory.async_get_mock_hap(
+        test_devices=["3014F7110000000000000064"]
+    )
+
+    ha_state, hmip_device = get_and_check_entity_basics(
+        hass, mock_hap, entity_id, entity_name, device_model
+    )
+
+    assert ha_state.state == STATE_ON
+
+    await async_manipulate_test_data(hass, hmip_device, "deviceOverloaded", False, 0)
+    ha_state = hass.states.get(entity_id)
+    assert ha_state.state == STATE_OFF
+
+
+async def test_hmip_undervoltage_sensor(
+    hass: HomeAssistant, default_mock_hap_factory
+) -> None:
+    """Test HomematicipUndervoltageSensor."""
+    entity_id = "binary_sensor.garagentor_undervoltage"
+    entity_name = "Garagentor Undervoltage"
+    device_model = "HmIP-WGC"
+    mock_hap = await default_mock_hap_factory.async_get_mock_hap(
+        test_devices=["3014F7110000000000000WGC"]
+    )
+
+    ha_state, hmip_device = get_and_check_entity_basics(
+        hass, mock_hap, entity_id, entity_name, device_model
+    )
+
+    assert ha_state.state == STATE_OFF
+
+    await async_manipulate_test_data(hass, hmip_device, "deviceUndervoltage", True, 0)
+    ha_state = hass.states.get(entity_id)
+    assert ha_state.state == STATE_ON
