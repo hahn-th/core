@@ -278,7 +278,9 @@ class HomematicipHAP:
         await runner.async_initialize_runner()
 
         runner.model.home.subscribe_on_update(self.async_update)
-        runner.event_manager.subscribe(ModelUpdateEvent.ITEM_CREATED)
+        runner.event_manager.subscribe(
+            ModelUpdateEvent.ITEM_CREATED, self.async_create_entity
+        )
 
         # Use the title of the config entry as title for the home.
         runner.name = name

@@ -1,10 +1,16 @@
 """Common tests for HomematicIP devices."""
 
+from unittest.mock import patch
+
+from homematicip.events.event_types import ModelUpdateEvent
+
+from homeassistant.components.homematicip_cloud import DOMAIN as HMIPC_DOMAIN
+from homeassistant.components.homematicip_cloud.hap import HomematicipHAP
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from .helper import async_manipulate_test_data, get_and_check_entity_basics
+from .helper import HAPID, async_manipulate_test_data, get_and_check_entity_basics
 
 # async def test_hmip_load_all_supported_devices(
 #     hass: HomeAssistant, default_mock_hap_factory
@@ -51,60 +57,60 @@ async def test_hmip_remove_device(
     assert len(mock_hap.hmip_device_by_entity_id) == pre_mapping_count - 3
 
 
-# async def test_hmip_add_device(
-#     hass: HomeAssistant,
-#     entity_registry: er.EntityRegistry,
-#     device_registry: dr.DeviceRegistry,
-#     default_mock_hap_factory,
-#     hmip_config_entry,
-# ) -> None:
-#     """Test add a hmip device."""
-#     entity_id = "light.treppe_channel3"
-#     entity_name = "Treppe Channel3"
-#     device_model = "HmIP-BSL"
-#     mock_hap = await default_mock_hap_factory.async_get_mock_hap(
-#         test_devices=["3014F711BSL0000000000050"]
-#     )
+async def test_hmip_add_device(
+    hass: HomeAssistant,
+    entity_registry: er.EntityRegistry,
+    device_registry: dr.DeviceRegistry,
+    default_mock_hap_factory,
+    hmip_config_entry,
+) -> None:
+    """Test add a hmip device."""
+    entity_id = "light.treppe_channel3"
+    entity_name = "Treppe Channel3"
+    device_model = "HmIP-BSL"
+    mock_hap = await default_mock_hap_factory.async_get_mock_hap(
+        test_devices=["3014F711BSL0000000000050"]
+    )
 
-#     ha_state, hmip_device = get_and_check_entity_basics(
-#         hass, mock_hap, entity_id, entity_name, device_model
-#     )
+    ha_state, hmip_device = get_and_check_entity_basics(
+        hass, mock_hap, entity_id, entity_name, device_model
+    )
 
-#     assert ha_state.state == STATE_ON
-#     assert hmip_device
+    assert ha_state.state == STATE_ON
+    assert hmip_device
 
-#     pre_device_count = len(device_registry.devices)
-#     pre_entity_count = len(entity_registry.entities)
-#     pre_mapping_count = len(mock_hap.hmip_device_by_entity_id)
+    pre_device_count = len(device_registry.devices)
+    pre_entity_count = len(entity_registry.entities)
+    pre_mapping_count = len(mock_hap.hmip_device_by_entity_id)
 
-#     hmip_device.fire_on_remove()
-#     await hass.async_block_till_done()
+    hmip_device.fire_on_remove()
+    await hass.async_block_till_done()
 
-#     assert len(device_registry.devices) == pre_device_count - 1
-#     assert len(entity_registry.entities) == pre_entity_count - 3
-#     assert len(mock_hap.hmip_device_by_entity_id) == pre_mapping_count - 3
+    assert len(device_registry.devices) == pre_device_count - 1
+    assert len(entity_registry.entities) == pre_entity_count - 3
+    assert len(mock_hap.hmip_device_by_entity_id) == pre_mapping_count - 3
 
-#     reloaded_hap = HomematicipHAP(hass, hmip_config_entry)
-#     with (
-#         patch(
-#             "homeassistant.components.homematicip_cloud.HomematicipHAP",
-#             return_value=reloaded_hap,
-#         ),
-#         patch.object(reloaded_hap, "async_connect"),
-#         patch.object(reloaded_hap, "get_runner", return_value=mock_hap.runner),
-#         patch(
-#             "homeassistant.components.homematicip_cloud.hap.asyncio.sleep",
-#         ),
-#     ):
-#         await mock_hap.runner.event_manager.publish(
-#             ModelUpdateEvent.ITEM_CREATED, hmip_device
-#         )
-#         await hass.async_block_till_done()
+    reloaded_hap = HomematicipHAP(hass, hmip_config_entry)
+    with (
+        patch(
+            "homeassistant.components.homematicip_cloud.HomematicipHAP",
+            return_value=reloaded_hap,
+        ),
+        patch.object(reloaded_hap, "async_connect"),
+        patch.object(reloaded_hap, "get_runner", return_value=mock_hap.runner),
+        patch(
+            "homeassistant.components.homematicip_cloud.hap.asyncio.sleep",
+        ),
+    ):
+        await mock_hap.runner.event_manager.publish(
+            ModelUpdateEvent.ITEM_CREATED, hmip_device
+        )
+        await hass.async_block_till_done()
 
-#     assert len(device_registry.devices) == pre_device_count
-#     assert len(entity_registry.entities) == pre_entity_count
-#     new_hap = hass.data[HMIPC_DOMAIN][HAPID]
-#     assert len(new_hap.hmip_device_by_entity_id) == pre_mapping_count
+    assert len(device_registry.devices) == pre_device_count
+    assert len(entity_registry.entities) == pre_entity_count
+    new_hap = hass.data[HMIPC_DOMAIN][HAPID]
+    assert len(new_hap.hmip_device_by_entity_id) == pre_mapping_count
 
 
 # async def test_hmip_remove_group(

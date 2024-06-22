@@ -104,7 +104,7 @@ class HomeFactory:
         hap = self.hass.data[HMIPC_DOMAIN][HAPID]
         mock_runner.model.home.subscribe_on_update(hap.async_update)
         mock_runner.event_manager.subscribe(
-            ModelUpdateEvent.ITEM_CREATED, hap.async_update
+            ModelUpdateEvent.ITEM_CREATED, hap.async_create_entity
         )
 
         return hap
