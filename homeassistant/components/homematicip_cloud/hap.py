@@ -134,7 +134,7 @@ class HomematicipHAP:
         3. We need to update home without devices and groups in all other cases.
 
         """
-        if not self.runner.websocket_connected:
+        if not self.runner.model.home.connected:
             _LOGGER.error("HMIP access point has lost connection with the cloud")
             self._accesspoint_connected = False
             self.set_all_to_unavailable()
@@ -154,7 +154,7 @@ class HomematicipHAP:
         return self.runner.model
 
     @callback
-    def async_create_entity(
+    async def async_create_entity(
         self, event_type: ModelUpdateEvent, hmip_base: HmipBaseModel
     ) -> None:
         """Create an entity or a group."""
@@ -165,11 +165,11 @@ class HomematicipHAP:
         """Delay entity creation to allow the user to enter a device name."""
         if is_device:
             await asyncio.sleep(30)
-        await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+        self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
 
     async def get_state(self) -> None:
         """Update HMIP state and tell Home Assistant."""
-        await self.runner.async_get_current_state()
+        await self.runner.async_refresh_model()
         self.update_all()
 
     def get_state_finished(self, future) -> None:
@@ -186,14 +186,21 @@ class HomematicipHAP:
 
     def set_all_to_unavailable(self) -> None:
         """Set all devices to unavailable and tell Home Assistant."""
-        for device in self.runner.model.devices:
-            device.unreach = True
+        for device in self.runner.model.devices.values():
+            if len(device.functionalChannels) > 0:
+                device.functionalChannels["0"].unreach = True
+
+        for group in self.runner.model.groups.values():
+            group.unreach = True
+
         self.update_all()
 
     def update_all(self) -> None:
         """Signal all devices to update their state."""
-        for device in self.runner.model.devices:
+        for device in self.runner.model.devices.values():
             device.fire_on_update()
+        for group in self.runner.model.groups.values():
+            group.fire_on_update()
 
     async def async_connect(self) -> None:
         """Start WebSocket connection."""
@@ -268,11 +275,10 @@ class HomematicipHAP:
         )
 
         runner = Runner(external_loop=self.hass.loop, config=cfg)
-        runner.event_manager.subscribe(ModelUpdateEvent.ITEM_UPDATED, self.async_update)
-        runner.event_manager.subscribe(
-            ModelUpdateEvent.ITEM_REMOVED, self.async_create_entity
-        )
         await runner.async_initialize_runner()
+
+        runner.model.home.subscribe_on_update(self.async_update)
+        runner.event_manager.subscribe(ModelUpdateEvent.ITEM_CREATED)
 
         # Use the title of the config entry as title for the home.
         runner.name = name

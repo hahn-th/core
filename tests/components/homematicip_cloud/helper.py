@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 from homematicip.events.event_manager import EventManager
 from homematicip.events.event_types import ModelUpdateEvent
+from homematicip.model.hmip_base import HmipBaseModel
 from homematicip.model.model import build_model_from_json
 from homematicip.model.model_components import Device, Group
 from homematicip.runner import Runner
@@ -101,19 +102,18 @@ class HomeFactory:
         await self.hass.async_block_till_done()
 
         hap = self.hass.data[HMIPC_DOMAIN][HAPID]
+        mock_runner.model.home.subscribe_on_update(hap.async_update)
         mock_runner.event_manager.subscribe(
-            ModelUpdateEvent.ITEM_UPDATED, hap.async_update
+            ModelUpdateEvent.ITEM_CREATED, hap.async_update
         )
-        mock_runner.event_manager.subscribe(
-            ModelUpdateEvent.ITEM_CREATED, hap.async_create_entity
-        )
+
         return hap
 
 
 class RunnerMock(Runner):
-    """Home template as builder for home mock.
+    """Home template as builder for runner mock.
 
-    It is based on the upstream libs home class to generate hmip devices
+    It is based on the upstream libs runner class to generate hmip devices
     and groups based on the given homematicip_cloud.json.
 
     All further testing activities should be done by using the AsyncHome mock,
@@ -135,11 +135,15 @@ class RunnerMock(Runner):
         """Init template with connection."""
         super().__init__()  # Call the __init__ method from the base class
         self._rest_connection = connection
-        self.name = home_name
-        self.label = "Home"
-        self.test_devices = test_devices if test_devices is not None else []
-        self.test_groups = test_groups if test_groups is not None else []
-        self.event_manager = EventManager()
+        self.name: str = home_name
+        self.label: str = "Home"
+        self.test_devices: list[HmipBaseModel] = (
+            test_devices if test_devices is not None else []
+        )
+        self.test_groups: list[HmipBaseModel] = (
+            test_groups if test_groups is not None else []
+        )
+        self.event_manager: EventManager = EventManager()
 
         self.init_json_state = json.loads(FIXTURE_DATA)
         self._init_model(self.init_json_state)
