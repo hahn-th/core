@@ -1,5 +1,8 @@
 """Support for HomematicIP Cloud devices."""
 
+import logging
+from typing import TypedDict
+
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -23,6 +26,8 @@ from .const import (
 )
 from .hap import HomematicipHAP
 from .services import async_setup_services, async_unload_services
+
+_logger = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -139,3 +144,83 @@ def _async_remove_obsolete_entities(
         for hapid in hap.home.accessPointUpdateStates:
             if er_entry.unique_id == f"HomematicipBatterySensor_{hapid}":
                 entity_registry.async_remove(er_entry.entity_id)
+
+
+class MigrationClassConfig(TypedDict, total=False):
+    """TypedDict for migration class configuration."""
+
+    post: str
+    channel_index: int | None
+
+
+UNIQUE_ID_MIGRATION_CLASS_MAP: dict[str, MigrationClassConfig] = {
+    "HomematicipBatterySensor": {
+        "post": "battery",
+        "channel_index": 0,
+    },
+    "HomematicipTiltVibrationSensor": {
+        "post": "acceleration",
+        "channel_index": 1,
+    },
+    "HomematicipMultiDimmer": {
+        "post": "dimmer",
+    },
+}
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate the config entry to the latest version."""
+    if config_entry.version == 1:
+        async_migrate_v1_v2(hass, config_entry)
+        hass.config_entries.async_update_entry(config_entry, version=2)
+
+    return True
+
+
+def async_migrate_v1_v2(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate from version 1 to version 2."""
+    entity_registry = er.async_get(hass)
+    registered_entires = er.async_entries_for_config_entry(
+        entity_registry, config_entry.entry_id
+    )
+
+    for entry in registered_entires:
+        migrate_entity_unique_id(entry.entity_id, entry.unique_id, entity_registry)
+
+    return True
+
+
+def migrate_entity_unique_id(
+    entity_id: str, old_unique_id: str, entity_registry: er.EntityRegistry
+) -> None:
+    """Migrate the unique_id of an entity."""
+    splitted_old_unique_id = old_unique_id.split("_")
+
+    if splitted_old_unique_id[0] in UNIQUE_ID_MIGRATION_CLASS_MAP:
+        migration_class: MigrationClassConfig = UNIQUE_ID_MIGRATION_CLASS_MAP[
+            splitted_old_unique_id[0]
+        ]
+
+        if len(splitted_old_unique_id) == 2:
+            channel = f"Channel{migration_class['channel_index'] if migration_class['channel_index'] is not None else 1}"
+        else:
+            channel = splitted_old_unique_id[1]
+
+        new_unique_id = (
+            f"{splitted_old_unique_id[-1]}_{channel}_{migration_class['post']}"
+        )
+
+        entity_registry.async_update_entity(entity_id, new_unique_id=new_unique_id)
+
+        _logger.info(
+            "Migrated entity %s from %s to %s",
+            entity_id,
+            old_unique_id,
+            new_unique_id,
+        )
+    else:
+        _logger.warning(
+            "Entity %s with unique_id %s not migrated, class not found.",
+            entity_id,
+            old_unique_id,
+        )

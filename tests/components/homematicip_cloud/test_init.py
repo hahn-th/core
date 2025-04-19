@@ -4,7 +4,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from homematicip.base.base_connection import HmipConnectionError
 from homematicip.connection.connection_context import ConnectionContext
+import pytest
 
+from homeassistant.components.homematicip_cloud import migrate_entity_unique_id
 from homeassistant.components.homematicip_cloud.const import (
     CONF_ACCESSPOINT,
     CONF_AUTHTOKEN,
@@ -15,8 +17,9 @@ from homeassistant.components.homematicip_cloud.const import (
 )
 from homeassistant.components.homematicip_cloud.hap import HomematicipHAP
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 
 from tests.common import MockConfigEntry
@@ -252,3 +255,65 @@ async def test_setup_two_haps_unload_one_by_one(hass: HomeAssistant) -> None:
 
     # Check services are removed
     assert not hass.services.async_services().get(HMIPC_DOMAIN)
+
+
+async def test_migrate_unique_ids(hass: HomeAssistant) -> None:
+    """Test migration of unique ids."""
+
+    mock_config = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC123", HMIPC_NAME: "name"}
+    config = MockConfigEntry(domain=HMIPC_DOMAIN, data=mock_config, version=1)
+    config.add_to_hass(hass)
+
+    with patch(
+        "homeassistant.components.homematicip_cloud.hap.HomematicipHAP.async_connect",
+    ):
+        assert await async_setup_component(hass, HMIPC_DOMAIN, {HMIPC_DOMAIN: config})
+
+    assert True
+
+
+@pytest.mark.parametrize(
+    ("test_config"),
+    [
+        {
+            "entity_id": "homematicip_cloud.test_sensor",
+            "old_unique_id": "HomematicipBatterySensor_3014F7110000000000000000",
+            "expected_unique_id": "3014F7110000000000000000_Channel0_battery",
+        },
+        {
+            "entity_id": "homematicip_cloud.test_sensor",
+            "old_unique_id": "HomematicipTiltVibrationSensor_3014F7110TILTVIBRATIONSENSOR",
+            "expected_unique_id": "3014F7110TILTVIBRATIONSENSOR_Channel1_acceleration",
+        },
+        {
+            "entity_id": "homematicip_cloud.test_sensor",
+            "old_unique_id": "HomematicipMultiDimmer_Channel4_3014F711000WIREDDIMMER3",
+            "expected_unique_id": "3014F711000WIREDDIMMER3_Channel4_dimmer",
+        },
+    ],
+)
+def test_migrate_unique_id(hass: HomeAssistant, test_config: dict[str, str]) -> None:
+    """Test migration of unique id."""
+    entity_id = test_config["entity_id"]
+    old_unique_id = test_config["old_unique_id"]
+    expected_unique_id = test_config["expected_unique_id"]
+
+    config_data = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC123", HMIPC_NAME: "name"}
+    mock_config = MockConfigEntry(domain=HMIPC_DOMAIN, data=config_data)
+    mock_config.add_to_hass(hass)
+
+    # Extract the object_id from the entity_id (remove the domain prefix)
+    object_id = entity_id.split(".", 1)[1]
+
+    entity_registry = er.async_get(hass)
+    entity_registry.async_get_or_create(
+        domain=HMIPC_DOMAIN,
+        platform=Platform.SENSOR,
+        unique_id=old_unique_id,
+        config_entry=mock_config,
+        suggested_object_id=object_id,
+    )
+
+    migrate_entity_unique_id(entity_id, old_unique_id, entity_registry)
+
+    assert entity_registry.async_get(entity_id).unique_id == expected_unique_id
