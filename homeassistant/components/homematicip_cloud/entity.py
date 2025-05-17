@@ -215,13 +215,12 @@ class HomematicipGenericEntity(Entity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        unique_id = f"{self.__class__.__name__}_{self._device.id}"
-        if self._is_multi_channel:
-            unique_id = (
-                f"{self.__class__.__name__}_Channel{self._channel}_{self._device.id}"
+        if isinstance(self._device, Device):
+            return (
+                f"{self._device.id}_Channel{self.functional_channel.index}_{self._post}"
             )
 
-        return unique_id
+        return f"{self._device.id}_{self.__class__.__name__}"
 
     @property
     def icon(self) -> str | None:
