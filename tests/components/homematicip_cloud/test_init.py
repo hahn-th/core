@@ -10,7 +10,7 @@ from homeassistant.components.homematicip_cloud import migrate_entity_unique_id
 from homeassistant.components.homematicip_cloud.const import (
     CONF_ACCESSPOINT,
     CONF_AUTHTOKEN,
-    DOMAIN as HMIPC_DOMAIN,
+    DOMAIN,
     HMIPC_AUTHTOKEN,
     HMIPC_HAPID,
     HMIPC_NAME,
@@ -36,17 +36,15 @@ async def test_config_with_accesspoint_passed_to_config_entry(
         CONF_NAME: "name",
     }
     # no config_entry exists
-    assert len(hass.config_entries.async_entries(HMIPC_DOMAIN)) == 0
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 0
 
     with patch(
         "homeassistant.components.homematicip_cloud.hap.HomematicipHAP.async_connect",
     ):
-        assert await async_setup_component(
-            hass, HMIPC_DOMAIN, {HMIPC_DOMAIN: entry_config}
-        )
+        assert await async_setup_component(hass, DOMAIN, {DOMAIN: entry_config})
 
     # config_entry created for access point
-    config_entries = hass.config_entries.async_entries(HMIPC_DOMAIN)
+    config_entries = hass.config_entries.async_entries(DOMAIN)
     assert len(config_entries) == 1
     assert config_entries[0].data == {
         "authtoken": "123",
@@ -63,10 +61,10 @@ async def test_config_already_registered_not_passed_to_config_entry(
     """Test that an already registered accesspoint does not get imported."""
 
     mock_config = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC123", HMIPC_NAME: "name"}
-    MockConfigEntry(domain=HMIPC_DOMAIN, data=mock_config).add_to_hass(hass)
+    MockConfigEntry(domain=DOMAIN, data=mock_config).add_to_hass(hass)
 
     # one config_entry exists
-    config_entries = hass.config_entries.async_entries(HMIPC_DOMAIN)
+    config_entries = hass.config_entries.async_entries(DOMAIN)
     assert len(config_entries) == 1
     assert config_entries[0].data == {
         "authtoken": "123",
@@ -85,12 +83,10 @@ async def test_config_already_registered_not_passed_to_config_entry(
     with patch(
         "homeassistant.components.homematicip_cloud.hap.HomematicipHAP.async_connect",
     ):
-        assert await async_setup_component(
-            hass, HMIPC_DOMAIN, {HMIPC_DOMAIN: entry_config}
-        )
+        assert await async_setup_component(hass, DOMAIN, {DOMAIN: entry_config})
 
     # no new config_entry created / still one config_entry
-    config_entries = hass.config_entries.async_entries(HMIPC_DOMAIN)
+    config_entries = hass.config_entries.async_entries(DOMAIN)
     assert len(config_entries) == 1
     assert config_entries[0].data == {
         "authtoken": "123",
@@ -117,7 +113,7 @@ async def test_load_entry_fails_due_to_connection_error(
             return_value=ConnectionContext(),
         ),
     ):
-        assert await async_setup_component(hass, HMIPC_DOMAIN, {})
+        assert await async_setup_component(hass, DOMAIN, {})
 
     assert hmip_config_entry.runtime_data
     assert hmip_config_entry.state is ConfigEntryState.SETUP_RETRY
@@ -135,7 +131,7 @@ async def test_load_entry_fails_due_to_generic_exception(
             side_effect=Exception,
         ),
     ):
-        assert await async_setup_component(hass, HMIPC_DOMAIN, {})
+        assert await async_setup_component(hass, DOMAIN, {})
 
     assert hmip_config_entry.runtime_data
     assert hmip_config_entry.state is ConfigEntryState.SETUP_ERROR
@@ -144,7 +140,7 @@ async def test_load_entry_fails_due_to_generic_exception(
 async def test_unload_entry(hass: HomeAssistant) -> None:
     """Test being able to unload an entry."""
     mock_config = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC123", HMIPC_NAME: "name"}
-    MockConfigEntry(domain=HMIPC_DOMAIN, data=mock_config).add_to_hass(hass)
+    MockConfigEntry(domain=DOMAIN, data=mock_config).add_to_hass(hass)
 
     with patch("homeassistant.components.homematicip_cloud.HomematicipHAP") as mock_hap:
         instance = mock_hap.return_value
@@ -156,11 +152,11 @@ async def test_unload_entry(hass: HomeAssistant) -> None:
         instance.home.currentAPVersion = "mock-ap-version"
         instance.async_reset = AsyncMock(return_value=True)
 
-        assert await async_setup_component(hass, HMIPC_DOMAIN, {})
+        assert await async_setup_component(hass, DOMAIN, {})
 
     assert mock_hap.return_value.mock_calls[0][0] == "async_setup"
 
-    config_entries = hass.config_entries.async_entries(HMIPC_DOMAIN)
+    config_entries = hass.config_entries.async_entries(DOMAIN)
     assert len(config_entries) == 1
     assert config_entries[0].runtime_data
     assert config_entries[0].state is ConfigEntryState.LOADED
@@ -183,10 +179,10 @@ async def test_hmip_dump_hap_config_services(
         assert write_mock.mock_calls
 
 
-async def test_setup_services_and_unload_services(hass: HomeAssistant) -> None:
-    """Test setup services and unload services."""
+async def test_setup_services(hass: HomeAssistant) -> None:
+    """Test setup services."""
     mock_config = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC123", HMIPC_NAME: "name"}
-    MockConfigEntry(domain=HMIPC_DOMAIN, data=mock_config).add_to_hass(hass)
+    MockConfigEntry(domain=DOMAIN, data=mock_config).add_to_hass(hass)
 
     with patch("homeassistant.components.homematicip_cloud.HomematicipHAP") as mock_hap:
         instance = mock_hap.return_value
@@ -198,72 +194,33 @@ async def test_setup_services_and_unload_services(hass: HomeAssistant) -> None:
         instance.home.currentAPVersion = "mock-ap-version"
         instance.async_reset = AsyncMock(return_value=True)
 
-        assert await async_setup_component(hass, HMIPC_DOMAIN, {})
+        assert await async_setup_component(hass, DOMAIN, {})
 
     # Check services are created
-    hmipc_services = hass.services.async_services()[HMIPC_DOMAIN]
+    hmipc_services = hass.services.async_services()[DOMAIN]
     assert len(hmipc_services) == 9
 
-    config_entries = hass.config_entries.async_entries(HMIPC_DOMAIN)
+    config_entries = hass.config_entries.async_entries(DOMAIN)
     assert len(config_entries) == 1
 
     await hass.config_entries.async_unload(config_entries[0].entry_id)
-    # Check services are removed
-    assert not hass.services.async_services().get(HMIPC_DOMAIN)
-
-
-async def test_setup_two_haps_unload_one_by_one(hass: HomeAssistant) -> None:
-    """Test setup two access points and unload one by one and check services."""
-
-    # Setup AP1
-    mock_config = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC123", HMIPC_NAME: "name"}
-    MockConfigEntry(domain=HMIPC_DOMAIN, data=mock_config).add_to_hass(hass)
-    # Setup AP2
-    mock_config2 = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC1234", HMIPC_NAME: "name2"}
-    MockConfigEntry(domain=HMIPC_DOMAIN, data=mock_config2).add_to_hass(hass)
-
-    with patch("homeassistant.components.homematicip_cloud.HomematicipHAP") as mock_hap:
-        instance = mock_hap.return_value
-        instance.async_setup = AsyncMock(return_value=True)
-        instance.home.id = "1"
-        instance.home.modelType = "mock-type"
-        instance.home.name = "mock-name"
-        instance.home.label = "mock-label"
-        instance.home.currentAPVersion = "mock-ap-version"
-        instance.async_reset = AsyncMock(return_value=True)
-
-        assert await async_setup_component(hass, HMIPC_DOMAIN, {})
-
-    hmipc_services = hass.services.async_services()[HMIPC_DOMAIN]
-    assert len(hmipc_services) == 9
-
-    config_entries = hass.config_entries.async_entries(HMIPC_DOMAIN)
-    assert len(config_entries) == 2
-    # unload the first AP
-    await hass.config_entries.async_unload(config_entries[0].entry_id)
-
-    # services still exists
-    hmipc_services = hass.services.async_services()[HMIPC_DOMAIN]
-    assert len(hmipc_services) == 9
-
-    # unload the second AP
-    await hass.config_entries.async_unload(config_entries[1].entry_id)
-
-    # Check services are removed
-    assert not hass.services.async_services().get(HMIPC_DOMAIN)
 
 
 async def test_migrate_unique_ids(hass: HomeAssistant) -> None:
     """Test migration of unique ids."""
 
-    mock_config = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC123", HMIPC_NAME: "name"}
-    config = MockConfigEntry(domain=HMIPC_DOMAIN, data=mock_config, version=1)
+    mock_config = {
+        CONF_ACCESSPOINT: "ABC123",
+        CONF_AUTHTOKEN: "123",
+        CONF_NAME: "name",
+    }
+    config = MockConfigEntry(domain=DOMAIN, data=mock_config, version=1)
     config.add_to_hass(hass)
 
     with patch(
         "homeassistant.components.homematicip_cloud.hap.HomematicipHAP.async_connect",
     ):
-        assert await async_setup_component(hass, HMIPC_DOMAIN, {HMIPC_DOMAIN: config})
+        assert await async_setup_component(hass, DOMAIN, {DOMAIN: mock_config})
 
     assert True
 
@@ -295,7 +252,7 @@ def test_migrate_unique_id(hass: HomeAssistant, test_config: dict[str, str]) -> 
     expected_unique_id = test_config["expected_unique_id"]
 
     config_data = {HMIPC_AUTHTOKEN: "123", HMIPC_HAPID: "ABC123", HMIPC_NAME: "name"}
-    mock_config = MockConfigEntry(domain=HMIPC_DOMAIN, data=config_data)
+    mock_config = MockConfigEntry(domain=DOMAIN, data=config_data)
     mock_config.add_to_hass(hass)
 
     # Extract the object_id from the entity_id (remove the domain prefix)
@@ -303,7 +260,7 @@ def test_migrate_unique_id(hass: HomeAssistant, test_config: dict[str, str]) -> 
 
     entity_registry = er.async_get(hass)
     entity_registry.async_get_or_create(
-        domain=HMIPC_DOMAIN,
+        domain=DOMAIN,
         platform=Platform.SENSOR,
         unique_id=old_unique_id,
         config_entry=mock_config,

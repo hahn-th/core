@@ -255,7 +255,7 @@ class HomematicipGenericEntity(Entity):
     def get_current_channel(self) -> FunctionalChannel:
         """Return the FunctionalChannel for device."""
         if hasattr(self._device, "functionalChannels"):
-            if self._is_multi_channel:
+            if self._is_multi_channel or self._channel is not None:
                 return self._device.functionalChannels[self._channel]
 
             if len(self._device.functionalChannels) > 1:
