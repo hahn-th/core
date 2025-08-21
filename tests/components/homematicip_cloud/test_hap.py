@@ -266,7 +266,9 @@ async def test_get_state_after_disconnect(
 
     assert not hap._ws_connection_closed.is_set()
     hap.home.websocket_is_connected.assert_called()
-    mock_sleep.assert_awaited_with(2)
+    assert mock_sleep.mock_calls[0].args[0] == 4
+    assert mock_sleep.mock_calls[1].args[0] == 2
+    assert mock_sleep.mock_calls[2].args[0] == 8
 
 
 async def test_try_get_state_exponential_backoff() -> None:
@@ -284,8 +286,9 @@ async def test_try_get_state_exponential_backoff() -> None:
     with patch("asyncio.sleep", new=AsyncMock()) as mock_sleep:
         await hap._try_get_state()
 
-    assert mock_sleep.mock_calls[0].args[0] == 8
-    assert mock_sleep.mock_calls[1].args[0] == 16
+    assert mock_sleep.mock_calls[0].args[0] == 4
+    assert mock_sleep.mock_calls[1].args[0] == 8
+    assert mock_sleep.mock_calls[2].args[0] == 16
     assert hap.get_state.call_count == 3
 
 

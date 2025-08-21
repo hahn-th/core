@@ -177,7 +177,11 @@ class HomematicipHAP:
     async def _try_get_state(self) -> None:
         """Call get_state in a loop until no error occurs, using exponential backoff on error."""
 
-        # Wait until WebSocket connection is established.
+        # At this point the websocket connection has been established.
+        # Wait a bit to ensure the websocket is ready.
+        # await asyncio.sleep(4)
+
+        # Ensure the websocket is connected before trying to get the state.
         while not self.home.websocket_is_connected():
             await asyncio.sleep(2)
 
